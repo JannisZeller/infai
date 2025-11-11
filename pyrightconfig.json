@@ -1,0 +1,21 @@
+{
+    "exclude": [
+        ".venv",
+        "__pycache__",
+        ".pytest_cache",
+        ".ruff_cache",
+        ".vscode",
+        ".idea",
+        ".coverage",
+        "data",
+        "scripts",
+    ],
+    "strict": [
+        "src/",
+        "tests/",
+    ],
+    "reportMatchNotExhaustive": "warning",
+    "venvPath": ".",
+    "venv": ".venv",
+    "pythonVersion": "3.12",
+}
