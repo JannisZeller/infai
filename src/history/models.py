@@ -1,55 +1,59 @@
-from time import time_ns
-from typing import Annotated, Any, Literal, Union
-from uuid import UUID, uuid4
-
-from pydantic import BaseModel, Discriminator, Field
-
-HistoryItemType = Literal[
-    "user_prompt",
-    "model_response",
-    "thinking_step",
-    "tool_call",
-    "tool_result",
-]
+from dataclasses import dataclass
+from enum import Enum
+from typing import Any
+from uuid import UUID
 
 
-class _BaseHistoryItem(BaseModel):
-    id: UUID = Field(default_factory=uuid4)
-    created_at: int = Field(default_factory=time_ns)
+class HistoryItemKind(Enum):
+    USER_PROMPT = "user_prompt"
+    MODEL_RESPONSE = "model_response"
+    THINKING_STEP = "thinking_step"
+    TOOL_CALL = "tool_call"
+    TOOL_RESULT = "tool_result"
 
 
-class UserPrompt(_BaseHistoryItem):
-    type_: Literal["user_prompt"] = "user_prompt"
+@dataclass(frozen=True)
+class BaseHistoryItem:
+    id: UUID
+    history_id: UUID
+    created_at: int
+
+
+@dataclass(frozen=True)
+class UserPrompt(BaseHistoryItem):
     prompt: str
 
 
-class ModelResponse(_BaseHistoryItem):
-    type_: Literal["model_response"] = "model_response"
+@dataclass(frozen=True)
+class ModelResponse(BaseHistoryItem):
     response: str
 
 
-class ThinkingStep(_BaseHistoryItem):
-    type_: Literal["thinking_step"] = "thinking_step"
+@dataclass(frozen=True)
+class ThinkingStep(BaseHistoryItem):
     thoughts: str
 
 
-class ToolCall(_BaseHistoryItem):
-    type_: Literal["tool_call"] = "tool_call"
+@dataclass(frozen=True)
+class ToolCall(BaseHistoryItem):
     tool_call_id: str
     tool_name: str
     args: dict[str, Any] | str | None
 
 
-class ToolResult(_BaseHistoryItem):
-    type_: Literal["tool_result"] = "tool_result"
+@dataclass(frozen=True)
+class ToolResult(BaseHistoryItem):
     tool_call_id: str
     tool_name: str
     is_retry: bool
     result: Any
 
 
-HistoryItem = Annotated[Union[UserPrompt, ModelResponse, ThinkingStep, ToolCall, ToolResult], Discriminator("type_")]
+HistoryItem = UserPrompt | ModelResponse | ThinkingStep | ToolCall | ToolResult
 
 
-class History(BaseModel):
+@dataclass(frozen=True)
+class History:
+    id: UUID
+    created_at: int
     items: list[HistoryItem]

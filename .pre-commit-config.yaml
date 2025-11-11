@@ -19,7 +19,7 @@ repos:
   - repo: local
     hooks:
       - id: pyright
-        name: pyright
+        name: type-checking
         entry: bash -c 'uv run pyright'
         language: system
         pass_filenames: false

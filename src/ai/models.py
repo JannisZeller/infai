@@ -1,35 +1,45 @@
-from time import time_ns
+from dataclasses import dataclass
 from typing import Literal
-from uuid import UUID, uuid4
-
-from pydantic import BaseModel, Field
+from uuid import UUID
 
 from src.history.models import HistoryItem
 
-LiveItemType = Literal["system_prompt", "model_response_delta", "thinking_delta", "stream_end"]
+
+@dataclass(frozen=True)
+class BaseLiveItem:
+    id: UUID
+    history_id: UUID
+    created_at: int
 
 
-class LiveItem(BaseModel):
-    id: UUID = Field(default_factory=uuid4)
-    created_at: int = Field(default_factory=time_ns)
+@dataclass(frozen=True)
+class SystemPrompt(BaseLiveItem):
+    prompt: str
 
 
-class SystemPrompt(LiveItem):
-    content: str
+PartType = Literal["thinking", "response", "tool_call_prep", "final_response"]
 
 
-class ModelResponseDelta(LiveItem):
-    type_: Literal["model_response_delta"] = "model_response_delta"
+@dataclass(frozen=True)
+class PartStart(BaseLiveItem):
+    part_type: PartType
+
+
+@dataclass(frozen=True)
+class ModelResponseDelta(BaseLiveItem):
     delta: str
 
 
-class ThinkingDelta(LiveItem):
-    type_: Literal["thinking_delta"] = "thinking_delta"
+@dataclass(frozen=True)
+class ThinkingDelta(BaseLiveItem):
     delta: str
 
 
-class StreamEnd(LiveItem):
-    type_: Literal["stream_end"] = "stream_end"
+@dataclass(frozen=True)
+class StreamEnd(BaseLiveItem):
+    pass
 
+
+LiveItem = SystemPrompt | PartStart | ModelResponseDelta | ThinkingDelta | StreamEnd
 
 StreamItem = LiveItem | HistoryItem
