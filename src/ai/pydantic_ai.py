@@ -7,6 +7,8 @@ from pydantic_ai.agent import CallToolsNode, ModelRequestNode, UserPromptNode
 from pydantic_ai.models.openai import OpenAIResponsesModel, OpenAIResponsesModelSettings
 from pydantic_ai.providers.openai import OpenAIProvider
 from pydantic_graph.nodes import End as EndNode
+from rich.console import Console
+from rich.panel import Panel
 
 from src.ai.mapper import PydanticAiMapper
 from src.history.models import History, ModelResponse, ThinkingStep, UserPrompt
@@ -45,6 +47,7 @@ class PydanticAiAgent:
     def __init__(self, history_service: HistoryService, model: OpenAIResponsesModel):
         self._model = model
         self._history_service = history_service
+        self._console = Console()
 
         self._reset_state()
 
@@ -56,13 +59,11 @@ class PydanticAiAgent:
         self._thinking = False
         self._talking = False
 
-    def _handle_part_start(self, start: str):
-        if self._no_part_yet:
-            self._no_part_yet = False
-            start = "\n" + start
-        else:
-            start = "\n\n" + start
-        print(start)
+    def _handle_part_start(self, label: str, style: str = "bold cyan"):
+        if not self._no_part_yet:
+            self._console.print("\n")  # Add spacing between sections
+        self._no_part_yet = False
+        self._console.print(f"\n[{style}]{label}[/{style}]")
 
     async def _handle_user_prompt_node(self, node: UserPromptNode):  # type: ignore
         # print(f"[UserPrompt]\n{node.user_prompt}")
@@ -98,25 +99,27 @@ class PydanticAiAgent:
                         self._add_and_reset_thought()
                         self._reset_toolcalling()
                         if not self._talking:
-                            self._handle_part_start("[Talking - TextPart]")
+                            self._handle_part_start("💬 Response", "bold green")
                             self._talking = True
-                        print(event.delta.content_delta, end="")
-                        self._talked += event.delta.content_delta
+                        if event.delta.content_delta:
+                            self._console.print(event.delta.content_delta, end="", style="green")
+                            self._talked += event.delta.content_delta
 
                     elif isinstance(event.delta, paim.ThinkingPartDelta):
                         self._add_and_reset_talked()
                         self._reset_toolcalling()
                         if not self._thinking:
-                            self._handle_part_start("[Thinking]")
+                            self._handle_part_start("🤔 Thinking", "bold yellow")
                             self._thinking = True
-                        print(event.delta.content_delta, end="")
-                        self._thought += event.delta.content_delta or ""
+                        if event.delta.content_delta:
+                            self._console.print(event.delta.content_delta, end="", style="dim yellow")
+                            self._thought += event.delta.content_delta
 
                     elif isinstance(event.delta, paim.ToolCallPartDelta):  # type: ignore[reportUnnecessaryComparison]
                         self._add_and_reset_thought()
                         self._add_and_reset_talked()
                         if not self._toolcalling:
-                            self._handle_part_start("[Preparing ToolCall]")
+                            self._handle_part_start("🔧 Preparing Tool Call", "bold magenta")
                             self._toolcalling = True
 
                 elif isinstance(event, paim.FinalResultEvent):
@@ -127,10 +130,11 @@ class PydanticAiAgent:
                 self._add_and_reset_thought()
                 self._reset_toolcalling()
                 self._add_and_reset_talked()
-                self._handle_part_start("[Talking - finally]")
+                self._handle_part_start("✨ Final Response", "bold bright_green")
                 async for output in request_stream.stream_text(delta=True):
-                    self._talked += output
-                    print(output)
+                    if output:
+                        self._talked += output
+                        self._console.print(output, end="", style="bright_green")
                 self._add_and_reset_talked()
 
     async def _handle_call_tools_node(self, node: CallToolsNode, run: AgentRun):  # type: ignore
@@ -138,13 +142,25 @@ class PydanticAiAgent:
         async with node.stream(run.ctx) as handle_stream:  # type: ignore
             async for event in handle_stream:
                 if isinstance(event, paim.FunctionToolCallEvent):
-                    print(
-                        f" -The LLM calls tool={event.part.tool_name!r} with args={event.part.args} (tool_call_id={event.part.tool_call_id!r})"
+                    tool_panel = Panel(
+                        f"[cyan]Tool:[/cyan] [bold]{event.part.tool_name}[/bold]\n"
+                        f"[cyan]Args:[/cyan] {event.part.args}\n"
+                        f"[dim]Call ID: {event.part.tool_call_id}[/dim]",
+                        title="🔧 Tool Call",
+                        border_style="magenta",
+                        padding=(0, 1),
                     )
+                    self._console.print(tool_panel)
                     tool_call = PydanticAiMapper.map_tool_call_out(event.part)
                     self._history_service.add_history_items([tool_call])
                 elif isinstance(event, paim.FunctionToolResultEvent):
-                    print(f" - Tool call {event.tool_call_id!r} returned => {event.result.content}")
+                    result_panel = Panel(
+                        f"{event.result.content}",
+                        title="✅ Tool Result",
+                        border_style="green",
+                        padding=(0, 1),
+                    )
+                    self._console.print(result_panel)
                     tool_result = PydanticAiMapper.map_tool_result_out(event.result)
                     self._history_service.add_history_items([tool_result])
 

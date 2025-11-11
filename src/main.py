@@ -17,7 +17,7 @@ async def main():
     )
 
     while True:
-        user_prompt_str = input("Enter your prompt (q to quit): ")
+        user_prompt_str = input("\n\nEnter your prompt (q to quit): ")
         if user_prompt_str == "q":
             break
         await pydantic_ai_agent.stream_agent_run(user_prompt=UserPrompt(prompt=user_prompt_str))
