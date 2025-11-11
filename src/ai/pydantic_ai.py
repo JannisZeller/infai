@@ -5,7 +5,9 @@ from dotenv import load_dotenv
 from pydantic_ai import Agent, AgentRun, FunctionToolset
 from pydantic_ai.agent import CallToolsNode, ModelRequestNode, UserPromptNode
 from pydantic_ai.models.openai import OpenAIResponsesModel, OpenAIResponsesModelSettings
-from pydantic_ai.providers.openai import OpenAIProvider
+
+# from pydantic_ai.providers.openai import OpenAIProvider
+from pydantic_ai.providers.azure import AzureProvider
 from pydantic_graph.nodes import End as EndNode
 from rich.console import Console
 from rich.panel import Panel
@@ -26,9 +28,14 @@ dummy_tools = FunctionToolset(tools=[dummy_tool])
 
 
 def get_model():
-    provider = OpenAIProvider(
-        base_url="https://taia.tngtech.com/proxy/openai/v1",
-        api_key=os.getenv("OPENAI_API_KEY"),
+    # provider = OpenAIProvider(
+    #     base_url="https://taia.tngtech.com/proxy/openai/v1",
+    #     api_key=os.getenv("OPENAI_API_KEY"),
+    # )
+    provider = AzureProvider(
+        azure_endpoint=os.getenv("AZURE_AIF_URL"),
+        api_version="2025-03-01-preview",
+        api_key=os.getenv("AZURE_AIF_KEY"),
     )
     settings = OpenAIResponsesModelSettings(
         openai_reasoning_effort="medium",
