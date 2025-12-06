@@ -1,10 +1,20 @@
 import logging
+from time import time_ns
 from typing import Sequence
+from uuid import UUID, uuid4
 
 import pydantic_ai.messages as paim
 
 from src.ai.models import ModelResponseDelta, StreamItem, SystemPrompt, ThinkingDelta
-from src.history.models import History, HistoryItem, ModelResponse, ThinkingStep, ToolCall, ToolResult, UserPrompt
+from src.history.service.models import (
+    History,
+    HistoryItem,
+    ModelResponse,
+    ThinkingStep,
+    ToolCall,
+    ToolResult,
+    UserPrompt,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -14,18 +24,30 @@ class PydanticAiMapper:
     # --------------------------------------------------------------------------------
     @staticmethod
     def _map_system_prompt_out(pai_system_prompt: paim.SystemPromptPart) -> SystemPrompt:
-        return SystemPrompt(content=pai_system_prompt.content)
+        return SystemPrompt(
+            id=uuid4(),
+            created_at=time_ns(),
+            prompt=pai_system_prompt.content,
+        )
 
     @staticmethod
     def _map_system_prompt_in(system_prompt: SystemPrompt) -> paim.ModelRequest:
-        return paim.ModelRequest(parts=[paim.SystemPromptPart(content=system_prompt.content)])
+        return paim.ModelRequest(parts=[paim.SystemPromptPart(content=system_prompt.prompt)])
 
     # User Prompt
     # --------------------------------------------------------------------------------
     @staticmethod
-    def map_user_prompt_out(pai_user_prompt: str | Sequence[paim.UserContent] | None) -> UserPrompt | None:
+    def map_user_prompt_out(
+        pai_user_prompt: str | Sequence[paim.UserContent] | None,
+        history_id: UUID,
+    ) -> UserPrompt | None:
         if isinstance(pai_user_prompt, str):
-            return UserPrompt(prompt=pai_user_prompt)
+            return UserPrompt(
+                id=uuid4(),
+                created_at=time_ns(),
+                history_id=history_id,
+                prompt=pai_user_prompt,
+            )
         if isinstance(pai_user_prompt, Sequence):
             full_user_prompt = ""
             for user_prompt_part in pai_user_prompt:
@@ -34,7 +56,12 @@ class PydanticAiMapper:
                 else:
                     logger.warning(f"Unexpected user prompt part: {user_prompt_part} - skipping.")
                     continue
-            return UserPrompt(prompt=full_user_prompt)
+            return UserPrompt(
+                id=uuid4(),
+                created_at=time_ns(),
+                history_id=history_id,
+                prompt=full_user_prompt,
+            )
         else:
             logger.warning(f"Unexpected PydanticAI UserPromptNode: {pai_user_prompt} - skipping.")
             return None
@@ -49,12 +76,28 @@ class PydanticAiMapper:
     def _map_thinking_delta_out(pai_thinking_delta: paim.ThinkingPartDelta) -> ThinkingDelta:
         if not pai_thinking_delta.content_delta:
             logger.warning(f"Unexpected thinking delta part: {pai_thinking_delta} using empty.")
-            return ThinkingDelta(delta="")
-        return ThinkingDelta(delta=pai_thinking_delta.content_delta)
+            return ThinkingDelta(
+                id=uuid4(),
+                created_at=time_ns(),
+                delta="",
+            )
+        return ThinkingDelta(
+            id=uuid4(),
+            created_at=time_ns(),
+            delta=pai_thinking_delta.content_delta,
+        )
 
     @staticmethod
-    def _map_thinking_step_out(pai_thinking_step: paim.ThinkingPart) -> ThinkingStep:
-        return ThinkingStep(thoughts=pai_thinking_step.content)
+    def _map_thinking_step_out(
+        pai_thinking_step: paim.ThinkingPart,
+        history_id: UUID,
+    ) -> ThinkingStep:
+        return ThinkingStep(
+            id=uuid4(),
+            history_id=history_id,
+            created_at=time_ns(),
+            thoughts=pai_thinking_step.content,
+        )
 
     @staticmethod
     def _map_thinking_step_in(thinking_step: ThinkingStep) -> paim.ModelResponse:
@@ -63,8 +106,14 @@ class PydanticAiMapper:
     # Tool Call
     # --------------------------------------------------------------------------------
     @staticmethod
-    def map_tool_call_out(pai_tool_call: paim.ToolCallPart) -> ToolCall:
+    def map_tool_call_out(
+        pai_tool_call: paim.ToolCallPart,
+        history_id: UUID,
+    ) -> ToolCall:
         return ToolCall(
+            id=uuid4(),
+            created_at=time_ns(),
+            history_id=history_id,
             tool_name=pai_tool_call.tool_name,
             tool_call_id=pai_tool_call.tool_call_id,
             args=pai_tool_call.args,
@@ -85,8 +134,14 @@ class PydanticAiMapper:
     # Tool Result
     # --------------------------------------------------------------------------------
     @staticmethod
-    def _map_tool_result_out(pai_tool_result: paim.ToolReturnPart) -> ToolResult:
+    def _map_tool_result_out(
+        pai_tool_result: paim.ToolReturnPart,
+        history_id: UUID,
+    ) -> ToolResult:
         return ToolResult(
+            id=uuid4(),
+            created_at=time_ns(),
+            history_id=history_id,
             tool_name=pai_tool_result.tool_name,
             tool_call_id=pai_tool_result.tool_call_id,
             is_retry=False,
@@ -94,8 +149,14 @@ class PydanticAiMapper:
         )
 
     @staticmethod
-    def _map_retry_part_out(pai_retry_part: paim.RetryPromptPart) -> ToolResult:
+    def _map_retry_part_out(
+        pai_retry_part: paim.RetryPromptPart,
+        history_id: UUID,
+    ) -> ToolResult:
         return ToolResult(
+            id=uuid4(),
+            created_at=time_ns(),
+            history_id=history_id,
             tool_name=pai_retry_part.tool_name or "unknown",
             tool_call_id=pai_retry_part.tool_call_id,
             is_retry=True,
@@ -103,11 +164,20 @@ class PydanticAiMapper:
         )
 
     @staticmethod
-    def map_tool_result_out(pai_tool_result: paim.ToolReturnPart | paim.RetryPromptPart) -> ToolResult:
+    def map_tool_result_out(
+        pai_tool_result: paim.ToolReturnPart | paim.RetryPromptPart,
+        history_id: UUID,
+    ) -> ToolResult:
         if isinstance(pai_tool_result, paim.ToolReturnPart):
-            return PydanticAiMapper._map_tool_result_out(pai_tool_result)
+            return PydanticAiMapper._map_tool_result_out(
+                pai_tool_result=pai_tool_result,
+                history_id=history_id,
+            )
         elif isinstance(pai_tool_result, paim.RetryPromptPart):  # type: ignore - to be explicit
-            return PydanticAiMapper._map_retry_part_out(pai_tool_result)
+            return PydanticAiMapper._map_retry_part_out(
+                pai_retry_part=pai_tool_result,
+                history_id=history_id,
+            )
 
     @staticmethod
     def _map_tool_result_in(tool_result: ToolResult) -> paim.ModelRequest:
@@ -135,11 +205,19 @@ class PydanticAiMapper:
     # --------------------------------------------------------------------------------
     @staticmethod
     def _map_model_response_delta_out(pai_model_response_delta: paim.TextPartDelta) -> ModelResponseDelta:
-        return ModelResponseDelta(delta=pai_model_response_delta.content_delta)
+        return ModelResponseDelta(id=uuid4(), created_at=time_ns(), delta=pai_model_response_delta.content_delta)
 
     @staticmethod
-    def _map_model_response_out(pai_model_response: paim.TextPart) -> ModelResponse:
-        return ModelResponse(response=pai_model_response.content)
+    def _map_model_response_out(
+        pai_model_response: paim.TextPart,
+        history_id: UUID,
+    ) -> ModelResponse:
+        return ModelResponse(
+            id=uuid4(),
+            created_at=time_ns(),
+            history_id=history_id,
+            response=pai_model_response.content,
+        )
 
     @staticmethod
     def _map_model_response_in(model_response: ModelResponse) -> paim.ModelResponse:
@@ -149,32 +227,65 @@ class PydanticAiMapper:
     # --------------------------------------------------------------------------------
 
     @staticmethod
-    def _map_model_message_out(paim_item: paim.ModelMessage) -> list[StreamItem]:
+    def _map_model_message_out(
+        paim_item: paim.ModelMessage,
+        id: UUID,
+        history_id: UUID,
+        created_at: int,
+    ) -> list[StreamItem]:
         stream_items: list[StreamItem] = []
         if isinstance(paim_item, paim.ModelRequest):
             for part in paim_item.parts:
                 if isinstance(part, paim.SystemPromptPart):
                     stream_items.append(PydanticAiMapper._map_system_prompt_out(part))
                 elif isinstance(part, paim.UserPromptPart):
-                    user_prompt = PydanticAiMapper.map_user_prompt_out(part.content)
+                    user_prompt = PydanticAiMapper.map_user_prompt_out(
+                        pai_user_prompt=part.content,
+                        history_id=history_id,
+                    )
                     if user_prompt:
                         stream_items.append(user_prompt)
                 elif isinstance(part, paim.ToolReturnPart):
-                    stream_items.append(PydanticAiMapper._map_tool_result_out(part))
+                    stream_items.append(
+                        PydanticAiMapper._map_tool_result_out(
+                            pai_tool_result=part,
+                            history_id=history_id,
+                        )
+                    )
                 elif isinstance(part, paim.RetryPromptPart):  # type: ignore[reportUnnecessaryComparison]
-                    stream_items.append(PydanticAiMapper._map_retry_part_out(part))
+                    stream_items.append(
+                        PydanticAiMapper._map_retry_part_out(
+                            pai_retry_part=part,
+                            history_id=history_id,
+                        )
+                    )
         else:
             for part in paim_item.parts:
                 if isinstance(part, paim.TextPartDelta):
-                    stream_items.append(PydanticAiMapper._map_model_response_delta_out(part))
+                    stream_items.append(PydanticAiMapper._map_model_response_delta_out(pai_model_response_delta=part))
                 elif isinstance(part, paim.TextPart):
-                    stream_items.append(PydanticAiMapper._map_model_response_out(part))
+                    stream_items.append(
+                        PydanticAiMapper._map_model_response_out(
+                            pai_model_response=part,
+                            history_id=history_id,
+                        )
+                    )
                 elif isinstance(part, paim.ThinkingPart):
-                    stream_items.append(PydanticAiMapper._map_thinking_step_out(part))
+                    stream_items.append(
+                        PydanticAiMapper._map_thinking_step_out(
+                            pai_thinking_step=part,
+                            history_id=history_id,
+                        )
+                    )
                 elif isinstance(part, paim.ThinkingPartDelta):
-                    stream_items.append(PydanticAiMapper._map_thinking_delta_out(part))
+                    stream_items.append(PydanticAiMapper._map_thinking_delta_out(pai_thinking_delta=part))
                 elif isinstance(part, paim.ToolCallPart):
-                    stream_items.append(PydanticAiMapper.map_tool_call_out(part))
+                    stream_items.append(
+                        PydanticAiMapper.map_tool_call_out(
+                            pai_tool_call=part,
+                            history_id=history_id,
+                        )
+                    )
                 else:
                     logger.warning(f"Unexpected history item: {part} skipping.")
         return stream_items

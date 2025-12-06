@@ -1,4 +1,6 @@
 import os
+from time import time_ns
+from uuid import UUID, uuid4
 
 import pydantic_ai.messages as paim
 from dotenv import load_dotenv
@@ -13,8 +15,8 @@ from rich.console import Console
 from rich.panel import Panel
 
 from src.ai.mapper import PydanticAiMapper
-from src.history.models import History, ModelResponse, ThinkingStep, UserPrompt
-from src.history.service import HistoryService
+from src.history.service.models import ModelResponse, ThinkingStep, UserPrompt
+from src.history.service.service import HistoryService
 
 load_dotenv()
 
@@ -32,6 +34,7 @@ def get_model():
     #     base_url="https://taia.tngtech.com/proxy/openai/v1",
     #     api_key=os.getenv("OPENAI_API_KEY"),
     # )
+    # https://zellerj-aif-eastus2.cognitiveservices.azure.com/openai/deployments/gpt-5.1/chat/completions?api-version=2025-01-01-preview
     provider = AzureProvider(
         azure_endpoint=os.getenv("AZURE_AIF_URL"),
         api_version="2025-03-01-preview",
@@ -43,7 +46,7 @@ def get_model():
         parallel_tool_calls=True,
     )
     return OpenAIResponsesModel(
-        model_name="gpt-5-mini",
+        model_name="gpt-5.1",
         provider=provider,
         settings=settings,
     )
@@ -72,28 +75,45 @@ class PydanticAiAgent:
         self._no_part_yet = False
         self._console.print(f"\n[{style}]{label}[/{style}]")
 
-    async def _handle_user_prompt_node(self, node: UserPromptNode):  # type: ignore
+    async def _handle_user_prompt_node(self, node: UserPromptNode, history_id: UUID):  # type: ignore
         # print(f"[UserPrompt]\n{node.user_prompt}")
-        user_prompt = PydanticAiMapper.map_user_prompt_out(node.user_prompt)
+        user_prompt = PydanticAiMapper.map_user_prompt_out(
+            pai_user_prompt=node.user_prompt,
+            history_id=history_id,
+        )
         if user_prompt:
-            self._history_service.add_history_items([user_prompt])
+            await self._history_service.add_history_item(user_prompt)
 
-    def _add_and_reset_talked(self):
+    async def _add_and_reset_talked(self, history_id: UUID):
         self._talking = False
         if self._talked:
-            self._history_service.add_history_items([ModelResponse(response=self._talked)])
+            await self._history_service.add_history_item(
+                ModelResponse(
+                    id=uuid4(),
+                    history_id=history_id,
+                    created_at=time_ns(),
+                    response=self._talked,
+                )
+            )
             self._talked = ""
 
-    def _add_and_reset_thought(self):
+    async def _add_and_reset_thought(self, history_id: UUID):
         self._thinking = False
         if self._thought:
-            self._history_service.add_history_items([ThinkingStep(thoughts=self._thought)])
+            await self._history_service.add_history_item(
+                ThinkingStep(
+                    id=uuid4(),
+                    history_id=history_id,
+                    created_at=time_ns(),
+                    thoughts=self._thought,
+                )
+            )
             self._thought = ""
 
     def _reset_toolcalling(self):
         self._toolcalling = False
 
-    async def _handle_model_request_node(self, node: ModelRequestNode, run: AgentRun):  # type: ignore
+    async def _handle_model_request_node(self, node: ModelRequestNode, run: AgentRun, history_id: UUID):  # type: ignore
         # A model request node => We can stream tokens from the model's request
         async with node.stream(run.ctx) as request_stream:  # type: ignore
             final_result_found = False
@@ -103,7 +123,7 @@ class PydanticAiAgent:
                     pass
                 elif isinstance(event, paim.PartDeltaEvent):
                     if isinstance(event.delta, paim.TextPartDelta):
-                        self._add_and_reset_thought()
+                        await self._add_and_reset_thought(history_id)
                         self._reset_toolcalling()
                         if not self._talking:
                             self._handle_part_start("💬 Response", "bold green")
@@ -113,7 +133,7 @@ class PydanticAiAgent:
                             self._talked += event.delta.content_delta
 
                     elif isinstance(event.delta, paim.ThinkingPartDelta):
-                        self._add_and_reset_talked()
+                        await self._add_and_reset_talked(history_id)
                         self._reset_toolcalling()
                         if not self._thinking:
                             self._handle_part_start("🤔 Thinking", "bold yellow")
@@ -123,8 +143,8 @@ class PydanticAiAgent:
                             self._thought += event.delta.content_delta
 
                     elif isinstance(event.delta, paim.ToolCallPartDelta):  # type: ignore[reportUnnecessaryComparison]
-                        self._add_and_reset_thought()
-                        self._add_and_reset_talked()
+                        await self._add_and_reset_thought(history_id)
+                        await self._add_and_reset_talked(history_id)
                         if not self._toolcalling:
                             self._handle_part_start("🔧 Preparing Tool Call", "bold magenta")
                             self._toolcalling = True
@@ -134,17 +154,17 @@ class PydanticAiAgent:
                     break
 
             if final_result_found:
-                self._add_and_reset_thought()
+                await self._add_and_reset_thought(history_id)
                 self._reset_toolcalling()
-                self._add_and_reset_talked()
+                await self._add_and_reset_talked(history_id)
                 self._handle_part_start("✨ Final Response", "bold bright_green")
                 async for output in request_stream.stream_text(delta=True):
                     if output:
                         self._talked += output
                         self._console.print(output, end="", style="bright_green")
-                self._add_and_reset_talked()
+                await self._add_and_reset_talked(history_id)
 
-    async def _handle_call_tools_node(self, node: CallToolsNode, run: AgentRun):  # type: ignore
+    async def _handle_call_tools_node(self, node: CallToolsNode, run: AgentRun, history_id: UUID):  # type: ignore
         # A handle-response node => The model returned some data, potentially calls a tool
         async with node.stream(run.ctx) as handle_stream:  # type: ignore
             async for event in handle_stream:
@@ -158,8 +178,8 @@ class PydanticAiAgent:
                         padding=(0, 1),
                     )
                     self._console.print(tool_panel)
-                    tool_call = PydanticAiMapper.map_tool_call_out(event.part)
-                    self._history_service.add_history_items([tool_call])
+                    tool_call = PydanticAiMapper.map_tool_call_out(pai_tool_call=event.part, history_id=history_id)
+                    await self._history_service.add_history_item(tool_call)
                 elif isinstance(event, paim.FunctionToolResultEvent):
                     result_panel = Panel(
                         f"{event.result.content}",
@@ -168,25 +188,29 @@ class PydanticAiAgent:
                         padding=(0, 1),
                     )
                     self._console.print(result_panel)
-                    tool_result = PydanticAiMapper.map_tool_result_out(event.result)
-                    self._history_service.add_history_items([tool_result])
+                    tool_result = PydanticAiMapper.map_tool_result_out(
+                        pai_tool_result=event.result, history_id=history_id
+                    )
+                    await self._history_service.add_history_item(tool_result)
 
-    async def _handle_end_node(self, node: EndNode, run: AgentRun):  # type: ignore
+    async def _handle_end_node(self, node: EndNode, run: AgentRun, history_id: UUID):  # type: ignore
         pass
 
     async def stream_agent_run(self, user_prompt: UserPrompt):
         pai_user_prompt = user_prompt.prompt
-        history = self._history_service.history
-        pai_history = PydanticAiMapper.map_history_in(history or History(items=[]))
+        history_id = user_prompt.history_id
+        history = await self._history_service.get_or_create_history_by_id(history_id)
+        pai_history = PydanticAiMapper.map_history_in(history)
+
         agent = Agent(model=self._model, toolsets=[dummy_tools])
         async with agent.iter(pai_user_prompt, message_history=pai_history) as run:
             async for node in run:
                 if Agent.is_user_prompt_node(node):
-                    await self._handle_user_prompt_node(node)  # type: ignore
+                    await self._handle_user_prompt_node(node=node, history_id=history_id)  # type: ignore
                 elif Agent.is_model_request_node(node):
-                    await self._handle_model_request_node(node, run)  # type: ignore
+                    await self._handle_model_request_node(node=node, run=run, history_id=history_id)  # type: ignore
                 elif Agent.is_call_tools_node(node):
-                    await self._handle_call_tools_node(node, run)  # type: ignore
+                    await self._handle_call_tools_node(node=node, run=run, history_id=history_id)  # type: ignore
                 elif Agent.is_end_node(node):
-                    await self._handle_end_node(node, run)  # type: ignore
+                    await self._handle_end_node(node=node, run=run, history_id=history_id)  # type: ignore
         self._reset_state()
