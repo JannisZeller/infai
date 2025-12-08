@@ -9,6 +9,8 @@ from src.core.logging import configure_logging
 from src.history.repo.repo import HistoryRepo
 from src.history.service.models import UserPrompt
 from src.history.service.service import HistoryService
+from src.rag.clients import AzureOpenAIClientProvider, QdrantClientProvider
+from src.rag.service import RAGService
 
 
 def get_history_id() -> UUID:
@@ -24,11 +26,23 @@ async def main():
 
     history_id = get_history_id()
 
+    qdrant_client_provider = QdrantClientProvider(qdrant_url="http://localhost:6333")
+    azure_openai_client_provider = AzureOpenAIClientProvider(history_id=history_id)
+
     history_repo = HistoryRepo(engine=get_engine())
     history_service = HistoryService(history_repo=history_repo)
+
+    rag_service = await RAGService.create(
+        qdrant_client_provider=qdrant_client_provider,
+        azure_openai_client_provider=azure_openai_client_provider,
+        history_service=history_service,
+        history_id=history_id,
+    )
+
     pydantic_ai_agent = PydanticAiAgent(
         history_service=history_service,
         model=get_model(),
+        rag_service=rag_service,
     )
 
     while True:

@@ -18,9 +18,9 @@ repos:
 
   - repo: local
     hooks:
-      - id: pyright
-        name: pyright
-        entry: bash -c 'uv run pyright'
+      - id: ty
+        name: type-checking
+        entry: bash -c 'uv run ty check'
         language: system
         pass_filenames: false
       - id: pytest
