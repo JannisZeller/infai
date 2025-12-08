@@ -290,7 +290,7 @@ class PydanticAiMapper:
         return stream_items
 
     @staticmethod
-    def _map_history_item_in(history_item: HistoryItem) -> paim.ModelMessage | None:
+    def _map_history_item_in(history_item: HistoryItem | SystemPrompt) -> paim.ModelMessage | None:
         if isinstance(history_item, SystemPrompt):
             return PydanticAiMapper._map_system_prompt_in(history_item)
         elif isinstance(history_item, UserPrompt):
@@ -301,13 +301,15 @@ class PydanticAiMapper:
             return PydanticAiMapper._map_tool_call_in(history_item)
         elif isinstance(history_item, ToolResult):
             return PydanticAiMapper._map_tool_result_in(history_item)
-        elif isinstance(history_item, ModelResponse):  # type: ignore - staying explicit
+        elif isinstance(history_item, ModelResponse):
             return PydanticAiMapper._map_model_response_in(history_item)
 
     # History
     # --------------------------------------------------------------------------------
     @staticmethod
-    def map_history_items_in(history_items: list[HistoryItem]) -> list[paim.ModelRequest | paim.ModelResponse]:
+    def map_history_items_in(
+        history_items: list[HistoryItem | SystemPrompt],
+    ) -> list[paim.ModelRequest | paim.ModelResponse]:
         pai_history: list[paim.ModelRequest | paim.ModelResponse] = []
         for item in history_items:
             paim_message = PydanticAiMapper._map_history_item_in(item)

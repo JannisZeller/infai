@@ -1,4 +1,5 @@
 import os
+from textwrap import dedent
 from time import time_ns
 from uuid import UUID, uuid4
 
@@ -15,8 +16,10 @@ from rich.console import Console
 from rich.panel import Panel
 
 from src.ai.mapper import PydanticAiMapper
-from src.history.service.models import ModelResponse, ThinkingStep, UserPrompt
+from src.ai.models import SystemPrompt
+from src.history.service.models import HistoryItem, ModelResponse, ThinkingStep, UserPrompt
 from src.history.service.service import HistoryService
+from src.rag.service import RAGService
 
 load_dotenv()
 
@@ -54,11 +57,11 @@ def get_model():
 
 class PydanticAiAgent:
     # Streaming logic following https://ai.pydantic.dev/agents/
-    def __init__(self, history_service: HistoryService, model: OpenAIResponsesModel):
+    def __init__(self, history_service: HistoryService, model: OpenAIResponsesModel, rag_service: RAGService):
         self._model = model
         self._history_service = history_service
+        self._rag_service = rag_service
         self._console = Console()
-
         self._reset_state()
 
     def _reset_state(self):
@@ -83,18 +86,19 @@ class PydanticAiAgent:
         )
         if user_prompt:
             await self._history_service.add_history_item(user_prompt)
+            await self._rag_service.add_history_items([user_prompt])
 
     async def _add_and_reset_talked(self, history_id: UUID):
         self._talking = False
         if self._talked:
-            await self._history_service.add_history_item(
-                ModelResponse(
-                    id=uuid4(),
-                    history_id=history_id,
-                    created_at=time_ns(),
-                    response=self._talked,
-                )
+            model_response = ModelResponse(
+                id=uuid4(),
+                history_id=history_id,
+                created_at=time_ns(),
+                response=self._talked,
             )
+            await self._history_service.add_history_item(model_response)
+            await self._rag_service.add_history_items([model_response])
             self._talked = ""
 
     async def _add_and_reset_thought(self, history_id: UUID):
@@ -200,14 +204,27 @@ class PydanticAiAgent:
         self,
         user_prompt: UserPrompt,
         last_n_history_items: int = 10,
+        n_memory_items: int = 10,
     ):
         pai_user_prompt = user_prompt.prompt
         history_id = user_prompt.history_id
 
-        history_items = await self._history_service.get_last_n_history_items(
-            history_id=history_id,
-            n=last_n_history_items,
+        history_items: list[HistoryItem | SystemPrompt] = list(
+            await self._history_service.get_last_n_history_items(
+                history_id=history_id,
+                n=last_n_history_items,
+            )
         )
+        print(f"### Using {len(history_items)} history items")
+
+        main_system_prompt = self._main_system_prompt()
+        history_items.insert(0, main_system_prompt)
+        memory_prompt = await self._rag_service.search_for_user_prompt(
+            user_prompt=user_prompt,
+            top_k=n_memory_items,
+        )
+        history_items.insert(0, memory_prompt)
+
         pai_history = PydanticAiMapper.map_history_items_in(history_items)
 
         agent = Agent(model=self._model, toolsets=[dummy_tools])
@@ -222,3 +239,14 @@ class PydanticAiAgent:
                 elif Agent.is_end_node(node):
                     await self._handle_end_node(node=node, run=run, history_id=history_id)  # type: ignore
         self._reset_state()
+
+    def _main_system_prompt(self) -> SystemPrompt:
+        return SystemPrompt(
+            id=uuid4(),
+            created_at=time_ns(),
+            prompt=dedent("""
+                [# General Instructions #]
+
+                You are a helpful assistant .
+            """),
+        )
