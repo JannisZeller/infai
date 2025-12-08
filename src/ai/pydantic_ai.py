@@ -196,11 +196,19 @@ class PydanticAiAgent:
     async def _handle_end_node(self, node: EndNode, run: AgentRun, history_id: UUID):  # type: ignore
         pass
 
-    async def stream_agent_run(self, user_prompt: UserPrompt):
+    async def stream_agent_run(
+        self,
+        user_prompt: UserPrompt,
+        last_n_history_items: int = 10,
+    ):
         pai_user_prompt = user_prompt.prompt
         history_id = user_prompt.history_id
-        history = await self._history_service.get_or_create_history_by_id(history_id)
-        pai_history = PydanticAiMapper.map_history_in(history)
+
+        history_items = await self._history_service.get_last_n_history_items(
+            history_id=history_id,
+            n=last_n_history_items,
+        )
+        pai_history = PydanticAiMapper.map_history_items_in(history_items)
 
         agent = Agent(model=self._model, toolsets=[dummy_tools])
         async with agent.iter(pai_user_prompt, message_history=pai_history) as run:

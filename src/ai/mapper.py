@@ -7,7 +7,6 @@ import pydantic_ai.messages as paim
 
 from src.ai.models import ModelResponseDelta, StreamItem, SystemPrompt, ThinkingDelta
 from src.history.service.models import (
-    History,
     HistoryItem,
     ModelResponse,
     ThinkingStep,
@@ -308,9 +307,9 @@ class PydanticAiMapper:
     # History
     # --------------------------------------------------------------------------------
     @staticmethod
-    def map_history_in(history: History) -> list[paim.ModelRequest | paim.ModelResponse]:
+    def map_history_items_in(history_items: list[HistoryItem]) -> list[paim.ModelRequest | paim.ModelResponse]:
         pai_history: list[paim.ModelRequest | paim.ModelResponse] = []
-        for item in history.items:
+        for item in history_items:
             paim_message = PydanticAiMapper._map_history_item_in(item)
             if paim_message:
                 pai_history.append(paim_message)

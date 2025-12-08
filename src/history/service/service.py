@@ -13,3 +13,7 @@ class HistoryService:
 
     async def add_history_item(self, history_item: HistoryItem):
         await self._history_repo.add_history_item(history_item)
+
+    async def get_last_n_history_items(self, history_id: UUID, n: int) -> list[HistoryItem]:
+        history = await self.get_or_create_history_by_id(history_id)
+        return history.items[-n:]
