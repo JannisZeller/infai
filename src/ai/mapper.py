@@ -1,7 +1,7 @@
 import logging
 from time import time_ns
 from typing import Sequence
-from uuid import UUID, uuid4
+from uuid import UUID
 
 import pydantic_ai.messages as paim
 
@@ -22,9 +22,10 @@ class PydanticAiMapper:
     # System Prompt
     # --------------------------------------------------------------------------------
     @staticmethod
-    def _map_system_prompt_out(pai_system_prompt: paim.SystemPromptPart) -> SystemPrompt:
+    def _map_system_prompt_out(pai_system_prompt: paim.SystemPromptPart, id: UUID, history_id: UUID) -> SystemPrompt:
         return SystemPrompt(
-            id=uuid4(),
+            id=id,
+            history_id=history_id,
             created_at=time_ns(),
             prompt=pai_system_prompt.content,
         )
@@ -74,16 +75,20 @@ class PydanticAiMapper:
     # Thinking Part
     # --------------------------------------------------------------------------------
     @staticmethod
-    def _map_thinking_delta_out(pai_thinking_delta: paim.ThinkingPartDelta, id: UUID) -> ThinkingDelta:
+    def _map_thinking_delta_out(
+        pai_thinking_delta: paim.ThinkingPartDelta, id: UUID, history_id: UUID
+    ) -> ThinkingDelta:
         if not pai_thinking_delta.content_delta:
             logger.warning(f"Unexpected thinking delta part: {pai_thinking_delta} using empty.")
             return ThinkingDelta(
                 id=id,
+                history_id=history_id,
                 created_at=time_ns(),
                 delta="",
             )
         return ThinkingDelta(
             id=id,
+            history_id=history_id,
             created_at=time_ns(),
             delta=pai_thinking_delta.content_delta,
         )
@@ -213,8 +218,17 @@ class PydanticAiMapper:
     # Model Response
     # --------------------------------------------------------------------------------
     @staticmethod
-    def _map_model_response_delta_out(pai_model_response_delta: paim.TextPartDelta, id: UUID) -> ModelResponseDelta:
-        return ModelResponseDelta(id=id, created_at=time_ns(), delta=pai_model_response_delta.content_delta)
+    def _map_model_response_delta_out(
+        pai_model_response_delta: paim.TextPartDelta,
+        id: UUID,
+        history_id: UUID,
+    ) -> ModelResponseDelta:
+        return ModelResponseDelta(
+            id=id,
+            history_id=history_id,
+            created_at=time_ns(),
+            delta=pai_model_response_delta.content_delta,
+        )
 
     @staticmethod
     def _map_model_response_out(
@@ -224,8 +238,8 @@ class PydanticAiMapper:
     ) -> ModelResponse:
         return ModelResponse(
             id=id,
-            created_at=time_ns(),
             history_id=history_id,
+            created_at=time_ns(),
             response=pai_model_response.content,
         )
 
@@ -248,7 +262,13 @@ class PydanticAiMapper:
                 for part in paim_item.parts:
                     match part:
                         case paim.SystemPromptPart():
-                            stream_items.append(PydanticAiMapper._map_system_prompt_out(pai_system_prompt=part))
+                            stream_items.append(
+                                PydanticAiMapper._map_system_prompt_out(
+                                    pai_system_prompt=part,
+                                    id=id,
+                                    history_id=history_id,
+                                )
+                            )
                         case paim.UserPromptPart():
                             user_prompt = PydanticAiMapper.map_user_prompt_out(
                                 pai_user_prompt=part.content,
@@ -280,6 +300,7 @@ class PydanticAiMapper:
                             PydanticAiMapper._map_model_response_delta_out(
                                 pai_model_response_delta=part,
                                 id=id,
+                                history_id=history_id,
                             )
                         )
                     elif isinstance(part, paim.TextPart):
@@ -303,6 +324,7 @@ class PydanticAiMapper:
                             PydanticAiMapper._map_thinking_delta_out(
                                 pai_thinking_delta=part,
                                 id=id,
+                                history_id=history_id,
                             )
                         )
                     elif isinstance(part, paim.ToolCallPart):

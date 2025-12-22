@@ -13,14 +13,12 @@ from pydantic_graph.nodes import End as EndNode
 
 from src.ai.mapper import PydanticAiMapper
 from src.ai.models import (
-    ModelResponseDelta,
-    PartStart,
     StreamEnd,
     StreamItem,
     SystemPrompt,
-    ThinkingDelta,
 )
-from src.history.service.models import HistoryItem, ModelResponse, ThinkingStep, UserPrompt
+from src.ai.request_node_yields import ModelRequestNodeCurrentPart, PartState
+from src.history.service.models import HistoryItem, UserPrompt
 from src.history.service.service import HistoryService
 from src.rag.service import RAGService
 
@@ -39,14 +37,6 @@ class AIService:
         self._llm = llm
         self._history_service = history_service
         self._rag_service = rag_service
-        self._reset_state()
-
-    def _reset_state(self):
-        self._talked = ""
-        self._thought = ""
-        self._toolcalling = False
-        self._thinking = False
-        self._talking = False
 
     async def _handle_user_prompt_node(self, node: UserPromptNode, history_id: UUID) -> AsyncIterator[StreamItem]:  # type: ignore
         user_prompt = PydanticAiMapper.map_user_prompt_out(
@@ -59,36 +49,6 @@ class AIService:
             await self._rag_service.add_history_items([user_prompt])
             yield user_prompt
 
-    async def _add_and_reset_talked(self, history_id: UUID) -> AsyncIterator[StreamItem]:
-        self._talking = False
-        if self._talked:
-            model_response = ModelResponse(
-                id=uuid4(),
-                history_id=history_id,
-                created_at=time_ns(),
-                response=self._talked,
-            )
-            await self._history_service.add_history_item(model_response)
-            await self._rag_service.add_history_items([model_response])
-            self._talked = ""
-            yield model_response
-
-    async def _add_and_reset_thought(self, history_id: UUID) -> AsyncIterator[StreamItem]:
-        self._thinking = False
-        if self._thought:
-            thinking_step = ThinkingStep(
-                id=uuid4(),
-                history_id=history_id,
-                created_at=time_ns(),
-                thoughts=self._thought,
-            )
-            await self._history_service.add_history_item(thinking_step)
-            self._thought = ""
-            yield thinking_step
-
-    def _reset_toolcalling(self):
-        self._toolcalling = False
-
     async def _handle_model_request_node(
         self,
         node: ModelRequestNode,  # type: ignore
@@ -97,88 +57,68 @@ class AIService:
     ) -> AsyncIterator[StreamItem]:
         # A model request node => We can stream tokens from the model's request
         async with node.stream(run.ctx) as request_stream:  # type: ignore
-            final_result_found = False
+            current_part = ModelRequestNodeCurrentPart(history_id=history_id)
 
             async for event in request_stream:
-                if isinstance(event, paim.PartStartEvent):
-                    pass
-                elif isinstance(event, paim.PartDeltaEvent):
-                    if isinstance(event.delta, paim.TextPartDelta):
-                        async for item in self._add_and_reset_thought(history_id):
-                            yield item
-                        self._reset_toolcalling()
-                        if not self._talking:
-                            yield PartStart(
-                                id=uuid4(),
-                                created_at=time_ns(),
-                                part_type="response",
-                            )
-                            self._talking = True
-                        if event.delta.content_delta:
-                            self._talked += event.delta.content_delta
-                            yield ModelResponseDelta(
-                                id=uuid4(),
-                                created_at=time_ns(),
-                                delta=event.delta.content_delta,
-                            )
+                match event:
+                    case paim.PartStartEvent():
+                        match event.part:
+                            case paim.ThinkingPart():
+                                separator = "\n\n" if current_part.state == PartState.THINKING else ""
+                                # If we are switching from a different type, flush the previous part
+                                # and start tracking thinking part
+                                if current_part.is_streaming_but_not_in_state(PartState.THINKING):
+                                    if flushed_part := current_part.flush():
+                                        yield flushed_part
+                                    yield current_part.reset_to_state_and_get_part_start(PartState.THINKING)
+                                # If we are not currently streaming, reset the part to thinking
+                                # and yield the part start event.
+                                elif current_part.is_not_streaming():
+                                    yield current_part.reset_to_state_and_get_part_start(PartState.THINKING)
+                                # Add content and yield delta if present using a separator to fix the formatting.
+                                # Multiple thinking parts might be in a row.
+                                # Other than for the TextPart below we always yield
+                                # because we at least have the separator.
+                                yield current_part.add_content_and_yield_delta(content=separator + event.part.content)
 
-                    elif isinstance(event.delta, paim.ThinkingPartDelta):
-                        async for item in self._add_and_reset_talked(history_id):
-                            yield item
-                        self._reset_toolcalling()
-                        if not self._thinking:
-                            yield PartStart(
-                                id=uuid4(),
-                                created_at=time_ns(),
-                                part_type="thinking",
-                            )
-                            self._thinking = True
-                        if event.delta.content_delta:
-                            self._thought += event.delta.content_delta
-                            yield ThinkingDelta(
-                                id=uuid4(),
-                                created_at=time_ns(),
-                                delta=event.delta.content_delta,
-                            )
+                            case paim.TextPart():
+                                if current_part.is_streaming_but_not_in_state(PartState.TALKING):
+                                    if flushed_part := current_part.flush():
+                                        yield flushed_part
+                                    yield current_part.reset_to_state_and_get_part_start(PartState.TALKING)
 
-                    elif isinstance(event.delta, paim.ToolCallPartDelta):  # type: ignore[reportUnnecessaryComparison]
-                        async for item in self._add_and_reset_thought(history_id):
-                            yield item
-                        async for item in self._add_and_reset_talked(history_id):
-                            yield item
-                        if not self._toolcalling:
-                            yield PartStart(
-                                id=uuid4(),
-                                created_at=time_ns(),
-                                part_type="tool_call_prep",
-                            )
-                            self._toolcalling = True
+                                elif current_part.is_not_streaming():
+                                    yield current_part.reset_to_state_and_get_part_start(PartState.TALKING)
 
-                elif isinstance(event, paim.FinalResultEvent):
-                    final_result_found = True
-                    break
+                                if event.part.has_content():
+                                    yield current_part.add_content_and_yield_delta(event.part.content)
 
-            if final_result_found:
-                async for item in self._add_and_reset_thought(history_id):
-                    yield item
-                self._reset_toolcalling()
-                async for item in self._add_and_reset_talked(history_id):
-                    yield item
-                yield PartStart(
-                    id=uuid4(),
-                    created_at=time_ns(),
-                    part_type="final_response",
-                )
-                async for output in request_stream.stream_text(delta=True):
-                    if output:
-                        self._talked += output
-                        yield ModelResponseDelta(
-                            id=uuid4(),
-                            created_at=time_ns(),
-                            delta=output,
-                        )
-                async for item in self._add_and_reset_talked(history_id):
-                    yield item
+                            case paim.ToolCallPart():
+                                if current_part.is_streaming_but_not_in_state(PartState.NO_STREAM):
+                                    if flushed_part := current_part.flush():
+                                        yield flushed_part
+                                yield current_part.reset_to_state_and_get_part_start(PartState.TOOL_CALL_PREP)
+
+                            case paim.BuiltinToolCallPart() | paim.BuiltinToolReturnPart() | paim.FilePart():
+                                if current_part.is_streaming_but_not_in_state(PartState.NO_STREAM):
+                                    if flushed_part := current_part.flush():
+                                        yield flushed_part
+                                    current_part.reset_to_no_stream()
+
+                    case paim.PartDeltaEvent():
+                        match event.delta:
+                            case paim.ThinkingPartDelta() | paim.TextPartDelta():
+                                if event.delta.content_delta:
+                                    yield current_part.add_content_and_yield_delta(content=event.delta.content_delta)
+                            case paim.ToolCallPartDelta():
+                                pass
+
+                    case paim.PartEndEvent():
+                        # Do not flush on PartEndEvent - we want to collapse consecutive parts of the same type.
+                        pass
+                    case paim.FinalResultEvent():
+                        # Currently, streaming structured output is not supported, we use the TextPartDeltas directly.
+                        pass
 
     async def _handle_call_tools_node(
         self,
@@ -191,19 +131,23 @@ class AIService:
             async for event in handle_stream:
                 if isinstance(event, paim.FunctionToolCallEvent):
                     tool_call = PydanticAiMapper.map_tool_call_out(
-                        pai_tool_call=event.part, id=uuid4(), history_id=history_id
+                        pai_tool_call=event.part,
+                        id=uuid4(),
+                        history_id=history_id,
                     )
                     await self._history_service.add_history_item(tool_call)
                     yield tool_call
                 elif isinstance(event, paim.FunctionToolResultEvent):
                     tool_result = PydanticAiMapper.map_tool_result_out(
-                        pai_tool_result=event.result, id=uuid4(), history_id=history_id
+                        pai_tool_result=event.result,
+                        id=uuid4(),
+                        history_id=history_id,
                     )
                     await self._history_service.add_history_item(tool_result)
                     yield tool_result
 
     async def _handle_end_node(self, node: EndNode, run: AgentRun, history_id: UUID) -> AsyncIterator[StreamItem]:  # type: ignore
-        yield StreamEnd(id=uuid4(), created_at=time_ns())
+        yield StreamEnd(id=uuid4(), history_id=history_id, created_at=time_ns())
 
     async def stream_agent_run(
         self,
@@ -224,7 +168,7 @@ class AIService:
             )
         )
 
-        main_system_prompt = self._main_system_prompt()
+        main_system_prompt = self._main_system_prompt(history_id=history_id)
         history_items.insert(0, main_system_prompt)
         memory_prompt = await self._rag_service.search_for_user_prompt(
             user_prompt=user_prompt,
@@ -249,11 +193,11 @@ class AIService:
                 elif Agent.is_end_node(node):
                     async for item in self._handle_end_node(node=node, run=run, history_id=history_id):  # type: ignore
                         yield item
-        self._reset_state()
 
-    def _main_system_prompt(self) -> SystemPrompt:
+    def _main_system_prompt(self, history_id: UUID) -> SystemPrompt:
         return SystemPrompt(
             id=uuid4(),
+            history_id=history_id,
             created_at=time_ns(),
             prompt=dedent("""
                 [# General Instructions #]

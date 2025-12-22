@@ -8,6 +8,7 @@ from src.history.service.models import HistoryItem
 @dataclass(frozen=True)
 class BaseLiveItem:
     id: UUID
+    history_id: UUID
     created_at: int
 
 

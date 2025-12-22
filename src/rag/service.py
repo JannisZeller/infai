@@ -193,10 +193,10 @@ class RAGService:
         max_len_search_rag_doc = self._chunk_rag_docs([rag_doc])[0]
         embeddings = await self._embed_rag_docs([max_len_search_rag_doc])
         history_items = await self._search_for_embedding(embeddings[0], top_k)
-        print(f"### Found {len(history_items)} relevant history items for memory")
         if len(history_items) == 0:
             return SystemPrompt(
                 id=uuid4(),
+                history_id=user_prompt.history_id,
                 created_at=time_ns(),
                 prompt=dedent("""
                     [# Relevant Previous Interactions #]
@@ -226,6 +226,7 @@ class RAGService:
         prompt += "\n\n</previous_interactions>"
         return SystemPrompt(
             id=uuid4(),
+            history_id=user_prompt.history_id,
             created_at=time_ns(),
             prompt=prompt,
         )
