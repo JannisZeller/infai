@@ -1,17 +1,14 @@
-import os
 from textwrap import dedent
 from time import time_ns
 from typing import AsyncIterator
 from uuid import UUID, uuid4
 
 import pydantic_ai.messages as paim
-from dotenv import load_dotenv
 from pydantic_ai import Agent, AgentRun, FunctionToolset
 from pydantic_ai.agent import CallToolsNode, ModelRequestNode, UserPromptNode
-from pydantic_ai.models.openai import OpenAIResponsesModel, OpenAIResponsesModelSettings
+from pydantic_ai.models.openai import OpenAIResponsesModel
 
 # from pydantic_ai.providers.openai import OpenAIProvider
-from pydantic_ai.providers.azure import AzureProvider
 from pydantic_graph.nodes import End as EndNode
 
 from src.ai.mapper import PydanticAiMapper
@@ -27,8 +24,6 @@ from src.history.service.models import HistoryItem, ModelResponse, ThinkingStep,
 from src.history.service.service import HistoryService
 from src.rag.service import RAGService
 
-load_dotenv()
-
 
 def dummy_tool(string: str) -> str:
     """Repeats the input text."""
@@ -38,33 +33,10 @@ def dummy_tool(string: str) -> str:
 dummy_tools = FunctionToolset(tools=[dummy_tool])
 
 
-def get_model():
-    # provider = OpenAIProvider(
-    #     base_url="https://taia.tngtech.com/proxy/openai/v1",
-    #     api_key=os.getenv("OPENAI_API_KEY"),
-    # )
-    # https://zellerj-aif-eastus2.cognitiveservices.azure.com/openai/deployments/gpt-5.1/chat/completions?api-version=2025-01-01-preview
-    provider = AzureProvider(
-        azure_endpoint=os.getenv("AZURE_AIF_URL"),
-        api_version="2025-03-01-preview",
-        api_key=os.getenv("AZURE_AIF_KEY"),
-    )
-    settings = OpenAIResponsesModelSettings(
-        openai_reasoning_effort="medium",
-        openai_reasoning_summary="detailed",
-        parallel_tool_calls=True,
-    )
-    return OpenAIResponsesModel(
-        model_name="gpt-5.1",
-        provider=provider,
-        settings=settings,
-    )
-
-
 class AIService:
     # Streaming logic following https://ai.pydantic.dev/agents/
-    def __init__(self, history_service: HistoryService, model: OpenAIResponsesModel, rag_service: RAGService):
-        self._model = model
+    def __init__(self, history_service: HistoryService, llm: OpenAIResponsesModel, rag_service: RAGService):
+        self._llm = llm
         self._history_service = history_service
         self._rag_service = rag_service
         self._reset_state()
@@ -262,7 +234,7 @@ class AIService:
 
         pai_history = PydanticAiMapper.map_history_items_in(history_items)
 
-        agent = Agent(model=self._model, toolsets=[dummy_tools])
+        agent = Agent(model=self._llm, toolsets=[dummy_tools])
         async with agent.iter(pai_user_prompt, message_history=pai_history) as run:
             async for node in run:
                 if Agent.is_user_prompt_node(node):

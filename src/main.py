@@ -3,7 +3,10 @@ import os
 from time import time_ns
 from uuid import UUID, uuid4
 
-from src.ai.service import AIService, get_model
+from dotenv import load_dotenv
+
+from src.ai.llm import get_llm
+from src.ai.service import AIService
 from src.core.database import get_engine
 from src.core.logging import configure_logging
 from src.history.repo.repo import HistoryRepo
@@ -42,7 +45,7 @@ async def main():
 
     pydantic_ai_agent = AIService(
         history_service=history_service,
-        model=get_model(),
+        llm=get_llm(),
         rag_service=rag_service,
     )
 
@@ -65,4 +68,5 @@ async def main():
 
 
 if __name__ == "__main__":
+    load_dotenv()
     asyncio.run(main())
