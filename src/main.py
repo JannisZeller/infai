@@ -5,7 +5,7 @@ from uuid import UUID, uuid4
 
 from dotenv import load_dotenv
 
-from src.ai.llm import get_llm
+from src.ai.llm import get_ollama, get_openai  # noqa: F401 # type: ignore
 from src.ai.service import AIService
 from src.core.database import get_engine
 from src.core.logging import configure_logging
@@ -45,7 +45,7 @@ async def main():
 
     pydantic_ai_agent = AIService(
         history_service=history_service,
-        llm=get_llm(),
+        llm=get_openai(),
         rag_service=rag_service,
     )
 

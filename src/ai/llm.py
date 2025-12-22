@@ -1,14 +1,15 @@
 import os
 from functools import lru_cache
 
-from pydantic_ai.models.openai import OpenAIResponsesModel, OpenAIResponsesModelSettings
+from pydantic_ai.models.openai import OpenAIChatModel, OpenAIResponsesModel, OpenAIResponsesModelSettings
+from pydantic_ai.providers.ollama import OllamaProvider
 from pydantic_ai.providers.openai import OpenAIProvider
 
 # from pydantic_ai.providers.azure import AzureProvider
 
 
 @lru_cache
-def get_llm():
+def get_openai():
     api_key = os.getenv("OPENAI_API_KEY")
     if not api_key:
         raise ValueError("OPENAI_API_KEY is not set in .env")
@@ -33,4 +34,13 @@ def get_llm():
         model_name="gpt-5.2",
         provider=provider,
         settings=settings,
+    )
+
+
+@lru_cache
+def get_ollama():
+    provider = OllamaProvider(base_url="http://localhost:11434/v1")
+    return OpenAIChatModel(
+        model_name="ministral-3:3b",
+        provider=provider,
     )

@@ -6,7 +6,7 @@ from uuid import UUID, uuid4
 import pydantic_ai.messages as paim
 from pydantic_ai import Agent, AgentRun, FunctionToolset
 from pydantic_ai.agent import CallToolsNode, ModelRequestNode, UserPromptNode
-from pydantic_ai.models.openai import OpenAIResponsesModel
+from pydantic_ai.models.openai import OpenAIChatModel, OpenAIResponsesModel
 from pydantic_graph.nodes import End as EndNode
 
 from src.ai.history_preprocessor import preprocess_history
@@ -32,7 +32,12 @@ dummy_tools = FunctionToolset(tools=[dummy_tool])
 
 class AIService:
     # Streaming logic following https://ai.pydantic.dev/agents/
-    def __init__(self, history_service: HistoryService, llm: OpenAIResponsesModel, rag_service: RAGService):
+    def __init__(
+        self,
+        history_service: HistoryService,
+        llm: OpenAIResponsesModel | OpenAIChatModel,
+        rag_service: RAGService,
+    ):
         self._llm = llm
         self._history_service = history_service
         self._rag_service = rag_service
