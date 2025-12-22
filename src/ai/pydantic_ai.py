@@ -79,9 +79,9 @@ class PydanticAiAgent:
         self._console.print(f"\n[{style}]{label}[/{style}]")
 
     async def _handle_user_prompt_node(self, node: UserPromptNode, history_id: UUID):  # type: ignore
-        # print(f"[UserPrompt]\n{node.user_prompt}")
         user_prompt = PydanticAiMapper.map_user_prompt_out(
             pai_user_prompt=node.user_prompt,
+            id=uuid4(),
             history_id=history_id,
         )
         if user_prompt:
@@ -182,7 +182,9 @@ class PydanticAiAgent:
                         padding=(0, 1),
                     )
                     self._console.print(tool_panel)
-                    tool_call = PydanticAiMapper.map_tool_call_out(pai_tool_call=event.part, history_id=history_id)
+                    tool_call = PydanticAiMapper.map_tool_call_out(
+                        pai_tool_call=event.part, id=uuid4(), history_id=history_id
+                    )
                     await self._history_service.add_history_item(tool_call)
                 elif isinstance(event, paim.FunctionToolResultEvent):
                     result_panel = Panel(
@@ -193,7 +195,7 @@ class PydanticAiAgent:
                     )
                     self._console.print(result_panel)
                     tool_result = PydanticAiMapper.map_tool_result_out(
-                        pai_tool_result=event.result, history_id=history_id
+                        pai_tool_result=event.result, id=uuid4(), history_id=history_id
                     )
                     await self._history_service.add_history_item(tool_result)
 

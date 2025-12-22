@@ -19,11 +19,12 @@ dependencies = [
 [dependency-groups]
 dev = [
     "pre-commit>=4.4.0",
+    "pyright>=1.1.407",
     "pytest>=9.0.0",
     "pytest-asyncio>=0.23.3",
     "requests>=2.32.5",
     "ruff>=0.14.4",
-    "ty>=0.0.2",
+    # "ty>=0.0.2", # Switch to ty when they support reportMatchNotExhaustive
 ]
 
 [tool.ruff]
