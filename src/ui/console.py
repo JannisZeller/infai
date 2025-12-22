@@ -84,7 +84,7 @@ class ConsoleService:
     def _handle_tool_result(self, tool_result: ToolResult):
         """Render a tool result as a rich panel."""
         result_panel = Panel(
-            f"{tool_result.result}",
+            f"{tool_result.result}\n[dim]Call ID: {tool_result.tool_call_id}[/dim]",
             title="✅ Tool Result",
             border_style="green",
             padding=(0, 1),

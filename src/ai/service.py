@@ -93,10 +93,16 @@ class AIService:
                                     yield current_part.add_content_and_yield_delta(event.part.content)
 
                             case paim.ToolCallPart():
-                                if current_part.is_streaming_but_not_in_state(PartState.NO_STREAM):
-                                    if flushed_part := current_part.flush():
-                                        yield flushed_part
-                                yield current_part.reset_to_state_and_get_part_start(PartState.TOOL_CALL_PREP)
+                                # Special handling: TOOL_CALL_PREP is a state for (potentially) multiple tool calls
+                                if current_part.state == PartState.TOOL_CALL_PREP:
+                                    # Already in tool call prep mode - stay there for parallel calls
+                                    pass
+                                else:
+                                    # Transitioning to tool call prep - flush any previous content, same as above.
+                                    if current_part.is_streaming_but_not_in_state(PartState.NO_STREAM):
+                                        if flushed_part := current_part.flush():
+                                            yield flushed_part
+                                    yield current_part.reset_to_state_and_get_part_start(PartState.TOOL_CALL_PREP)
 
                             case paim.BuiltinToolCallPart() | paim.BuiltinToolReturnPart() | paim.FilePart():
                                 if current_part.is_streaming_but_not_in_state(PartState.NO_STREAM):
