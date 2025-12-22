@@ -2,7 +2,7 @@ from textwrap import dedent
 from time import time_ns
 from uuid import UUID, uuid4
 
-from openai import AsyncAzureOpenAI
+from openai import AsyncAzureOpenAI, AsyncOpenAI
 from qdrant_client import AsyncQdrantClient
 from qdrant_client import models as qdm
 
@@ -10,7 +10,7 @@ from src.ai.models import SystemPrompt
 from src.history.repo.mapper import HistoryItemKind
 from src.history.service.models import HistoryItem, ModelResponse, UserPrompt
 from src.history.service.service import HistoryService
-from src.rag.clients import AzureOpenAIClientProvider, QdrantClientProvider
+from src.rag.clients import AzureOpenAIClientProvider, OpenAIProvider, QdrantClientProvider
 from src.rag.models import Embedding, RAGItem
 
 
@@ -60,7 +60,7 @@ def _map_history_items_to_rag_items(history_items: list[UserPrompt | ModelRespon
 
 class RAGService:
     _qdrant_client: AsyncQdrantClient
-    _azure_openai_client: AsyncAzureOpenAI
+    _openai_client: AsyncAzureOpenAI | AsyncOpenAI
     _history_service: HistoryService
     _history_id: UUID
     _collection_name: str
@@ -73,13 +73,13 @@ class RAGService:
     async def create(
         cls,
         qdrant_client_provider: QdrantClientProvider,
-        azure_openai_client_provider: AzureOpenAIClientProvider,
+        openai_client_provider: AzureOpenAIClientProvider | OpenAIProvider,
         history_service: HistoryService,
         history_id: UUID,
     ):
         self = cls()
         self._qdrant_client = qdrant_client_provider.get_client()
-        self._azure_openai_client = azure_openai_client_provider.get_client()
+        self._openai_client = openai_client_provider.get_client()
         self._history_service = history_service
         self._history_id = history_id
         self._collection_name = f"history-{history_id}"
@@ -104,7 +104,7 @@ class RAGService:
             )
 
     async def _store_embedding_dimensions(self):
-        sample_embedding = await self._azure_openai_client.embeddings.create(
+        sample_embedding = await self._openai_client.embeddings.create(
             input="test",
             model=self._embedding_model_name,
         )
@@ -139,7 +139,7 @@ class RAGService:
         return chunked_rag_docs
 
     async def _embed_rag_docs(self, rag_docs: list[RAGItem]) -> list[Embedding]:
-        ebd_results = await self._azure_openai_client.embeddings.create(
+        ebd_results = await self._openai_client.embeddings.create(
             input=[rag_doc.text for rag_doc in rag_docs],
             model=self._embedding_model_name,
         )

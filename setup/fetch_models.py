@@ -13,20 +13,22 @@ def get_tng_api_key() -> str:
     return api_key
 
 
+def get_tng_llm_url() -> str:
+    base_url = os.getenv("OPENAI_BASE_URL", None)
+    if not base_url:
+        raise ValueError("OPENAI_BASE_URL is not set")
+    return base_url
+
+
 def fetch_model_ids(api_key: str, base_url: str) -> list[str]:
     response = requests.get(f"{base_url}/models", headers={"Authorization": f"Bearer {api_key}"})
     return [model["id"] for model in response.json()["data"]]
 
 
 if __name__ == "__main__":
-    try:
-        api_key = get_tng_api_key()
-    except ValueError:
-        print("Remember to set the OPENAI_API_KEY environment variable in your .env file.")
-        exit(1)
-
-    # models = fetch_model_ids(api_key=api_key, base_url="https://chat.model.tngtech.com/v1")
-    models = fetch_model_ids(api_key=api_key, base_url="https://taia.tngtech.com/proxy/openai/v1")
+    api_key = get_tng_api_key()
+    base_url = get_tng_llm_url()
+    models = fetch_model_ids(api_key=api_key, base_url=base_url)
 
     print(models)
 
