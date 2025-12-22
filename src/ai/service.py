@@ -7,10 +7,9 @@ import pydantic_ai.messages as paim
 from pydantic_ai import Agent, AgentRun, FunctionToolset
 from pydantic_ai.agent import CallToolsNode, ModelRequestNode, UserPromptNode
 from pydantic_ai.models.openai import OpenAIResponsesModel
-
-# from pydantic_ai.providers.openai import OpenAIProvider
 from pydantic_graph.nodes import End as EndNode
 
+from src.ai.history_preprocessor import preprocess_history
 from src.ai.mapper import PydanticAiMapper
 from src.ai.models import (
     StreamEnd,
@@ -175,6 +174,8 @@ class AIService:
             top_k=n_memory_items,
         )
         history_items.insert(0, memory_prompt)
+
+        history_items = preprocess_history(history_items)
 
         pai_history = PydanticAiMapper.map_history_items_in(history_items)
 
