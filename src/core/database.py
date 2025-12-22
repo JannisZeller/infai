@@ -10,7 +10,13 @@ SessionContext = AsyncGenerator[AsyncSession, None]
 
 
 def get_engine(path: Path = Path("./data/database.db")) -> AsyncEngine:
-    return create_async_engine(f"sqlite+aiosqlite:///{path}", echo=False)
+    return create_async_engine(
+        f"sqlite+aiosqlite:///{path}",
+        echo=False,
+        pool_pre_ping=True,  # Verify connections are alive before using
+        pool_recycle=3600,  # Recycle connections after 1 hour
+        connect_args={"timeout": 30},  # Connection timeout
+    )
 
 
 async def create_db_and_tables(engine: AsyncEngine):

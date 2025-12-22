@@ -4,40 +4,43 @@ from uuid import UUID
 
 
 @dataclass(frozen=True)
-class HistoryItem:
+class BaseHistoryItem:
     id: UUID
     history_id: UUID
     created_at: int
 
 
 @dataclass(frozen=True)
-class UserPrompt(HistoryItem):
+class UserPrompt(BaseHistoryItem):
     prompt: str
 
 
 @dataclass(frozen=True)
-class ModelResponse(HistoryItem):
+class ModelResponse(BaseHistoryItem):
     response: str
 
 
 @dataclass(frozen=True)
-class ThinkingStep(HistoryItem):
+class ThinkingStep(BaseHistoryItem):
     thoughts: str
 
 
 @dataclass(frozen=True)
-class ToolCall(HistoryItem):
+class ToolCall(BaseHistoryItem):
     tool_call_id: str
     tool_name: str
     args: dict[str, Any] | str | None
 
 
 @dataclass(frozen=True)
-class ToolResult(HistoryItem):
+class ToolResult(BaseHistoryItem):
     tool_call_id: str
     tool_name: str
     is_retry: bool
     result: Any
+
+
+HistoryItem = UserPrompt | ModelResponse | ThinkingStep | ToolCall | ToolResult
 
 
 @dataclass(frozen=True)

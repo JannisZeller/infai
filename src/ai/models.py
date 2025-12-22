@@ -1,33 +1,44 @@
 from dataclasses import dataclass
+from typing import Literal
 from uuid import UUID
 
 from src.history.service.models import HistoryItem
 
 
 @dataclass(frozen=True)
-class LiveItem:
+class BaseLiveItem:
     id: UUID
     created_at: int
 
 
 @dataclass(frozen=True)
-class SystemPrompt(LiveItem):
+class SystemPrompt(BaseLiveItem):
     prompt: str
 
 
+PartType = Literal["thinking", "response", "tool_call_prep", "final_response"]
+
+
 @dataclass(frozen=True)
-class ModelResponseDelta(LiveItem):
+class PartStart(BaseLiveItem):
+    part_type: PartType
+
+
+@dataclass(frozen=True)
+class ModelResponseDelta(BaseLiveItem):
     delta: str
 
 
 @dataclass(frozen=True)
-class ThinkingDelta(LiveItem):
+class ThinkingDelta(BaseLiveItem):
     delta: str
 
 
 @dataclass(frozen=True)
-class StreamEnd(LiveItem):
+class StreamEnd(BaseLiveItem):
     pass
 
+
+LiveItem = SystemPrompt | PartStart | ModelResponseDelta | ThinkingDelta | StreamEnd
 
 StreamItem = LiveItem | HistoryItem

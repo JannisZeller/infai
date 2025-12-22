@@ -3,7 +3,7 @@ import os
 from time import time_ns
 from uuid import UUID, uuid4
 
-from src.ai.pydantic_ai import PydanticAiAgent, get_model
+from src.ai.service import AIService, get_model
 from src.core.database import get_engine
 from src.core.logging import configure_logging
 from src.history.repo.repo import HistoryRepo
@@ -11,6 +11,7 @@ from src.history.service.models import UserPrompt
 from src.history.service.service import HistoryService
 from src.rag.clients import AzureOpenAIClientProvider, QdrantClientProvider
 from src.rag.service import RAGService
+from src.ui.console import ConsoleService
 
 
 def get_history_id() -> UUID:
@@ -39,17 +40,20 @@ async def main():
         history_id=history_id,
     )
 
-    pydantic_ai_agent = PydanticAiAgent(
+    pydantic_ai_agent = AIService(
         history_service=history_service,
         model=get_model(),
         rag_service=rag_service,
     )
 
+    console_ui = ConsoleService()
+
     while True:
         user_prompt_str = input('\n\n ❯ Enter your prompt ("q" to quit): ')
         if user_prompt_str == "q":
             break
-        await pydantic_ai_agent.stream_agent_run(
+
+        stream = pydantic_ai_agent.stream_agent_run(
             user_prompt=UserPrompt(
                 id=uuid4(),
                 history_id=history_id,
@@ -57,6 +61,7 @@ async def main():
                 prompt=user_prompt_str,
             ),
         )
+        await console_ui.consume_stream(stream)
 
 
 if __name__ == "__main__":
