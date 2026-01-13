@@ -5,7 +5,7 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 
 from src.core.database import SessionContext, create_db_and_tables, get_engine, get_session
-from src.history.repo.repo import HistoryRepo
+from src.history.service.repo_interface import HistoryRepo
 
 
 def as_mock(obj: Any) -> MagicMock:

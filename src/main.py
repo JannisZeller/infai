@@ -9,7 +9,7 @@ from src.ai.llm import get_ollama, get_openai  # noqa: F401 # type: ignore
 from src.ai.service import AIService
 from src.core.database import get_engine
 from src.core.logging import configure_logging
-from src.history.repo.repo import HistoryRepo
+from src.history.repo.async_sqlalchemy_repo import AsyncSqlalchemyHistoryRepo
 from src.history.service.models import UserPrompt
 from src.history.service.service import HistoryService
 from src.rag.clients import OpenAIProvider, QdrantClientProvider
@@ -33,7 +33,7 @@ async def main():
     qdrant_client_provider = QdrantClientProvider(qdrant_url="http://localhost:6333")
     openai_client_provider = OpenAIProvider(history_id=history_id)
 
-    history_repo = HistoryRepo(engine=get_engine())
+    history_repo = AsyncSqlalchemyHistoryRepo(engine=get_engine())
     history_service = HistoryService(history_repo=history_repo)
 
     rag_service = await RAGService.create(
@@ -44,8 +44,8 @@ async def main():
     )
 
     pydantic_ai_agent = AIService(
-        history_service=history_service,
         llm=get_openai(),
+        history_service=history_service,
         rag_service=rag_service,
     )
 

@@ -6,8 +6,8 @@ from sqlalchemy import delete
 from sqlalchemy.ext.asyncio import AsyncEngine
 from sqlmodel import col
 
+from src.history.repo.async_sqlalchemy_repo import AsyncSqlalchemyHistoryRepo
 from src.history.repo.models import HistoryDb, HistoryItemDb
-from src.history.repo.repo import HistoryRepo
 from src.history.service.models import UserPrompt
 from tests.conftest import get_test_session
 from tests.history.utils import compare_user_prompt
@@ -25,10 +25,10 @@ async def reset_database():
 
 @pytest.fixture
 def history_repo(engine: AsyncEngine):
-    yield HistoryRepo(engine)
+    yield AsyncSqlalchemyHistoryRepo(engine)
 
 
-async def test_history_repo_ops(history_repo: HistoryRepo):
+async def test_history_repo_ops(history_repo: AsyncSqlalchemyHistoryRepo):
     # Setup
     await reset_database()
 

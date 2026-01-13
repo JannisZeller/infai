@@ -34,8 +34,8 @@ class AIService:
     # Streaming logic following https://ai.pydantic.dev/agents/
     def __init__(
         self,
-        history_service: HistoryService,
         llm: OpenAIResponsesModel | OpenAIChatModel,
+        history_service: HistoryService,
         rag_service: RAGService,
     ):
         self._llm = llm

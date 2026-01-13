@@ -3,8 +3,8 @@ from uuid import uuid4
 
 import pytest
 
-from src.history.repo.repo import HistoryRepo
 from src.history.service.models import History, UserPrompt
+from src.history.service.repo_interface import HistoryRepo
 from src.history.service.service import HistoryService
 from tests.conftest import as_mock
 from tests.history.utils import compare_user_prompt

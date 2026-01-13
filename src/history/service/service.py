@@ -2,8 +2,8 @@ from typing import Sequence
 from uuid import UUID
 
 from src.ai.models import SystemPrompt
-from src.history.repo.repo import HistoryRepo
 from src.history.service.models import History, HistoryItem
+from src.history.service.repo_interface import HistoryRepo
 
 
 class HistoryService:
