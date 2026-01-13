@@ -20,7 +20,7 @@ from src.ai.prompts import PromptsService
 from src.ai.pydantic_ai.mapper import PydanticAiMapper
 from src.history.models import HistoryItem, UserPrompt
 from src.history.service import HistoryService
-from src.rag.service import RAGService
+from src.rag.port import RAGService
 
 
 def dummy_tool(string: str) -> str:

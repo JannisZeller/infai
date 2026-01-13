@@ -12,8 +12,8 @@ from src.core.database import get_engine
 from src.core.logging import configure_logging
 from src.history.async_sqlalchemy.adapter import AsyncSqlalchemyHistoryRepo
 from src.history.service import HistoryService
-from src.rag.clients import OpenAIProvider, QdrantClientProvider
-from src.rag.service import RAGService
+from src.rag.qdrant.clients import OpenAIProvider, QdrantClientProvider
+from src.rag.qdrant.service import QdrantRAGService
 from src.ui.console.adapter import ConsoleAdapter
 
 
@@ -37,7 +37,7 @@ async def main():
     history_repo = AsyncSqlalchemyHistoryRepo(engine=get_engine())
     history_service = HistoryService(history_repo=history_repo)
 
-    rag_service = await RAGService.create(
+    rag_service = await QdrantRAGService.create(
         qdrant_client_provider=qdrant_client_provider,
         openai_client_provider=openai_client_provider,
         history_service=history_service,

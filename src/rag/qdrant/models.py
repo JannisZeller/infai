@@ -5,7 +5,7 @@ from pydantic import BaseModel
 from src.history.models import HistoryItemKind
 
 
-class RAGItem(BaseModel):
+class QdrantRAGItem(BaseModel):
     history_item_id: UUID
     history_id: UUID
     created_at: int

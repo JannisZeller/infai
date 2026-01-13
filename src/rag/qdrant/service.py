@@ -7,57 +7,15 @@ from qdrant_client import AsyncQdrantClient
 from qdrant_client import models as qdm
 
 from src.ai.models import SystemPrompt
-from src.history.models import HistoryItem, HistoryItemKind, ModelResponse, UserPrompt
+from src.history.models import HistoryItem, ModelResponse, UserPrompt
 from src.history.service import HistoryService
-from src.rag.clients import AzureOpenAIClientProvider, OpenAIProvider, QdrantClientProvider
-from src.rag.models import Embedding, RAGItem
+from src.rag.port import RAGService
+from src.rag.qdrant.clients import AzureOpenAIClientProvider, OpenAIProvider, QdrantClientProvider
+from src.rag.qdrant.mapper import QdrantRAGMapper
+from src.rag.qdrant.models import Embedding, QdrantRAGItem
 
 
-def _map_history_item_to_rag_item(history_item: UserPrompt | ModelResponse) -> RAGItem:
-    if isinstance(history_item, UserPrompt):
-        return RAGItem(
-            history_item_id=history_item.id,
-            history_id=history_item.history_id,
-            created_at=history_item.created_at,
-            text=history_item.prompt,
-            kind=HistoryItemKind.USER_PROMPT,
-        )
-    elif isinstance(history_item, ModelResponse):  # type: ignore - staying explicit
-        return RAGItem(
-            history_item_id=history_item.id,
-            history_id=history_item.history_id,
-            created_at=history_item.created_at,
-            text=history_item.response,
-            kind=HistoryItemKind.MODEL_RESPONSE,
-        )
-    else:
-        raise NotImplementedError(f"Unexpected history item: {history_item} to map to plain text for embedding")
-
-
-def _map_point_to_history_item(rag_item: RAGItem) -> HistoryItem:
-    if rag_item.kind == HistoryItemKind.USER_PROMPT:
-        return UserPrompt(
-            id=rag_item.history_item_id,
-            history_id=rag_item.history_id,
-            created_at=rag_item.created_at,
-            prompt=rag_item.text,
-        )
-    elif rag_item.kind == HistoryItemKind.MODEL_RESPONSE:
-        return ModelResponse(
-            id=rag_item.history_item_id,
-            history_id=rag_item.history_id,
-            created_at=rag_item.created_at,
-            response=rag_item.text,
-        )
-    else:
-        raise NotImplementedError(f"Unexpected history item: {rag_item} to map to history item")
-
-
-def _map_history_items_to_rag_items(history_items: list[UserPrompt | ModelResponse]) -> list[RAGItem]:
-    return [_map_history_item_to_rag_item(item) for item in history_items]
-
-
-class RAGService:
+class QdrantRAGService(RAGService):
     _qdrant_client: AsyncQdrantClient
     _openai_client: AsyncAzureOpenAI | AsyncOpenAI
     _history_service: HistoryService
@@ -109,15 +67,15 @@ class RAGService:
         )
         self._embedding_dimensions = len(sample_embedding.data[0].embedding)
 
-    def _chunk_rag_doc(self, rag_doc: RAGItem) -> list[RAGItem]:
+    def _chunk_rag_doc(self, rag_doc: QdrantRAGItem) -> list[QdrantRAGItem]:
         text = rag_doc.text
-        chunked_rag_docs: list[RAGItem] = []
+        chunked_rag_docs: list[QdrantRAGItem] = []
 
         if len(text) <= self._embedding_chunk_max_chars:
             return [rag_doc]
 
-        def _create_rag_item(text: str) -> RAGItem:
-            return RAGItem(
+        def _create_rag_item(text: str) -> QdrantRAGItem:
+            return QdrantRAGItem(
                 history_item_id=rag_doc.history_item_id,
                 history_id=rag_doc.history_id,
                 created_at=rag_doc.created_at,
@@ -131,20 +89,20 @@ class RAGService:
 
         return chunked_rag_docs
 
-    def _chunk_rag_docs(self, rag_docs: list[RAGItem]) -> list[RAGItem]:
-        chunked_rag_docs: list[RAGItem] = []
+    def _chunk_rag_docs(self, rag_docs: list[QdrantRAGItem]) -> list[QdrantRAGItem]:
+        chunked_rag_docs: list[QdrantRAGItem] = []
         for rag_doc in rag_docs:
             chunked_rag_docs.extend(self._chunk_rag_doc(rag_doc))
         return chunked_rag_docs
 
-    async def _embed_rag_docs(self, rag_docs: list[RAGItem]) -> list[Embedding]:
+    async def _embed_rag_docs(self, rag_docs: list[QdrantRAGItem]) -> list[Embedding]:
         ebd_results = await self._openai_client.embeddings.create(
             input=[rag_doc.text for rag_doc in rag_docs],
             model=self._embedding_model_name,
         )
         return [ebd_result.embedding for ebd_result in ebd_results.data]
 
-    async def _upsert_rag_docs_and_embeddings(self, rag_docs: list[RAGItem], embeddings: list[Embedding]):
+    async def _upsert_rag_docs_and_embeddings(self, rag_docs: list[QdrantRAGItem], embeddings: list[Embedding]):
         for rag_doc, embedding in zip(rag_docs, embeddings):
             await self._qdrant_client.upsert(
                 collection_name=self._collection_name,
@@ -158,7 +116,7 @@ class RAGService:
             )
 
     async def add_history_items(self, history_items: list[UserPrompt | ModelResponse]):
-        rag_docs = _map_history_items_to_rag_items(history_items)
+        rag_docs = QdrantRAGMapper.map_history_items_to_rag_items(history_items)
         chunked_rag_docs = self._chunk_rag_docs(rag_docs)
         embeddings = await self._embed_rag_docs(chunked_rag_docs)
         await self._upsert_rag_docs_and_embeddings(chunked_rag_docs, embeddings)
@@ -181,14 +139,14 @@ class RAGService:
 
         history_items: list[HistoryItem] = []
         for point in points:
-            rag_item = RAGItem.model_validate(point.payload)
-            history_item = _map_point_to_history_item(rag_item)
+            rag_item = QdrantRAGItem.model_validate(point.payload)
+            history_item = QdrantRAGMapper.map_point_to_history_item(rag_item)
             history_items.append(history_item)
 
         return history_items
 
     async def search_for_user_prompt(self, user_prompt: UserPrompt, top_k: int = 10) -> SystemPrompt:
-        rag_doc = _map_history_item_to_rag_item(user_prompt)
+        rag_doc = QdrantRAGMapper.map_history_item_to_rag_item(user_prompt)
         max_len_search_rag_doc = self._chunk_rag_docs([rag_doc])[0]
         embeddings = await self._embed_rag_docs([max_len_search_rag_doc])
         history_items = await self._search_for_embedding(embeddings[0], top_k)
