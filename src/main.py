@@ -4,8 +4,9 @@ from uuid import UUID, uuid4
 
 from dotenv import load_dotenv
 
-from src.ai.llm import get_openai
-from src.ai.service import AIService
+from src.ai.prompts import PromptsService
+from src.ai.pydantic_ai.adapter import PydanticAIService
+from src.ai.pydantic_ai.llm import get_openai
 from src.application.chat_use_case import ChatUseCase
 from src.core.database import get_engine
 from src.core.logging import configure_logging
@@ -43,10 +44,11 @@ async def main():
         history_id=history_id,
     )
 
-    ai_service = AIService(
+    ai_service = PydanticAIService(
         llm=get_openai(),
         history_service=history_service,
         rag_service=rag_service,
+        prompts_service=PromptsService(),
     )
 
     chat_use_case = ChatUseCase(ai_service=ai_service, history_id=history_id)

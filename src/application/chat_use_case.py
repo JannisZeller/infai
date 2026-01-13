@@ -3,7 +3,7 @@ from typing import AsyncIterator
 from uuid import UUID, uuid4
 
 from src.ai.models import StreamItem
-from src.ai.service import AIService
+from src.ai.port import AIService
 from src.history.service.models import UserPrompt
 
 

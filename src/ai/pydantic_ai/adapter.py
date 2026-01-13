@@ -1,4 +1,3 @@
-from textwrap import dedent
 from time import time_ns
 from typing import AsyncIterator
 from uuid import UUID, uuid4
@@ -10,13 +9,15 @@ from pydantic_ai.models.openai import OpenAIChatModel, OpenAIResponsesModel
 from pydantic_graph.nodes import End as EndNode
 
 from src.ai.history_preprocessor import preprocess_history
-from src.ai.mapper import PydanticAiMapper
+from src.ai.model_request_yields import ModelRequestCurrentPart, PartState
 from src.ai.models import (
     StreamEnd,
     StreamItem,
     SystemPrompt,
 )
-from src.ai.request_node_yields import ModelRequestNodeCurrentPart, PartState
+from src.ai.port import AIService
+from src.ai.prompts import PromptsService
+from src.ai.pydantic_ai.mapper import PydanticAiMapper
 from src.history.service.models import HistoryItem, UserPrompt
 from src.history.service.service import HistoryService
 from src.rag.service import RAGService
@@ -30,17 +31,19 @@ def dummy_tool(string: str) -> str:
 dummy_tools = FunctionToolset(tools=[dummy_tool])
 
 
-class AIService:
+class PydanticAIService(AIService):
     # Streaming logic following https://ai.pydantic.dev/agents/
     def __init__(
         self,
         llm: OpenAIResponsesModel | OpenAIChatModel,
         history_service: HistoryService,
         rag_service: RAGService,
+        prompts_service: PromptsService,
     ):
         self._llm = llm
         self._history_service = history_service
         self._rag_service = rag_service
+        self._prompts_service = prompts_service
 
     async def _handle_user_prompt_node(self, node: UserPromptNode, history_id: UUID) -> AsyncIterator[StreamItem]:  # type: ignore
         user_prompt = PydanticAiMapper.map_user_prompt_out(
@@ -61,7 +64,7 @@ class AIService:
     ) -> AsyncIterator[StreamItem]:
         # A model request node => We can stream tokens from the model's request
         async with node.stream(run.ctx) as request_stream:  # type: ignore
-            current_part = ModelRequestNodeCurrentPart(history_id=history_id)
+            current_part = ModelRequestCurrentPart(history_id=history_id)
 
             async for event in request_stream:
                 match event:
@@ -178,7 +181,7 @@ class AIService:
             )
         )
 
-        main_system_prompt = self._main_system_prompt(history_id=history_id)
+        main_system_prompt = self._prompts_service.main_system_prompt(history_id=history_id)
         history_items.insert(0, main_system_prompt)
         memory_prompt = await self._rag_service.search_for_user_prompt(
             user_prompt=user_prompt,
@@ -205,15 +208,3 @@ class AIService:
                 elif Agent.is_end_node(node):
                     async for item in self._handle_end_node(node=node, run=run, history_id=history_id):  # type: ignore
                         yield item
-
-    def _main_system_prompt(self, history_id: UUID) -> SystemPrompt:
-        return SystemPrompt(
-            id=uuid4(),
-            history_id=history_id,
-            created_at=time_ns(),
-            prompt=dedent("""
-                [# General Instructions #]
-
-                You are a helpful assistant .
-            """),
-        )

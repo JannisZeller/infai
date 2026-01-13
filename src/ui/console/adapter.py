@@ -1,8 +1,9 @@
 from src.application.chat_use_case import ChatUseCase
 from src.ui.console.service import ConsoleService
+from src.ui.port import UI
 
 
-class ConsoleAdapter:
+class ConsoleAdapter(UI):
     """Driving adapter for the console interface."""
 
     def __init__(self, chat_use_case: ChatUseCase):

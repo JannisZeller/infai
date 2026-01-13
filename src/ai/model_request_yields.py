@@ -14,13 +14,17 @@ class PartState(Enum):
     TOOL_CALL_PREP = "tool_call_prep"
 
 
-ModelRequestNodeFullItemYields = ModelResponse | ThinkingStep
-ModelRequestNodeYields = ModelRequestNodeFullItemYields | ModelResponseDelta | ThinkingDelta
+ModelRequestFullItemYields = ModelResponse | ThinkingStep
+ModelRequestYields = ModelRequestFullItemYields | ModelResponseDelta | ThinkingDelta
 
 
 @dataclass
-class ModelRequestNodeCurrentPart:
-    """Tracks the current part being streamed to collapse consecutive parts of the same type."""
+class ModelRequestCurrentPart:
+    """
+    Tracks the current part being streamed in the the models request, i.e.
+    the "request" of the model back to the user or a tool call.
+    This is used to collapse consecutive parts of the same type.
+    """
 
     history_id: UUID
     id: UUID | None = None
@@ -35,7 +39,7 @@ class ModelRequestNodeCurrentPart:
         """Check if we're not currently tracking a part."""
         return self.state == PartState.NO_STREAM
 
-    def add_content_and_yield_delta(self, content: str) -> ModelRequestNodeYields:
+    def add_content_and_yield_delta(self, content: str) -> ModelRequestYields:
         """Add content to the current part and yield the corresponding delta.
 
         Args:
@@ -70,7 +74,7 @@ class ModelRequestNodeCurrentPart:
                     delta=content,
                 )
             case PartState.TOOL_CALL_PREP:
-                raise ValueError("Tool call prep part should not have content")
+                raise ValueError("Tool call prep part should not be added to the current part")
 
     def reset_to_state_and_get_part_start(self, state: PartState) -> PartStart:
         """Reset the part to the given state and a new flow item id."""
@@ -86,7 +90,7 @@ class ModelRequestNodeCurrentPart:
                 part_type = "tool_call_prep"
             case PartState.NO_STREAM:
                 raise ValueError(
-                    "ModelRequestNodeCurrentPart should never be `reset_to_state_and_get_part_start`'ed to state=NO_STREAM"
+                    "ModelRequestCurrentPart should never be `reset_to_state_and_get_part_start`'ed to state=NO_STREAM"
                 )
         return PartStart(
             id=self.id,
@@ -101,7 +105,7 @@ class ModelRequestNodeCurrentPart:
         self.state = PartState.NO_STREAM
         self.content = ""
 
-    def flush(self) -> ModelRequestNodeFullItemYields | None:
+    def flush(self) -> ModelRequestFullItemYields | None:
         """Flush the current part as a final flow item if active."""
 
         match self.state:
