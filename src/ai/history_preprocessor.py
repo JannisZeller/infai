@@ -1,5 +1,5 @@
 from src.ai.models import SystemPrompt
-from src.history.service.models import HistoryItem, ModelResponse, ThinkingStep, ToolCall, ToolResult, UserPrompt
+from src.history.models import HistoryItem, ModelResponse, ThinkingStep, ToolCall, ToolResult, UserPrompt
 
 
 def preprocess_history(history: list[HistoryItem | SystemPrompt]) -> list[HistoryItem | SystemPrompt]:

@@ -2,7 +2,7 @@ from dataclasses import dataclass
 from typing import Literal
 from uuid import UUID
 
-from src.history.service.models import HistoryItem
+from src.history.models import HistoryItem
 
 
 @dataclass(frozen=True)

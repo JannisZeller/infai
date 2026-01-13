@@ -5,7 +5,7 @@ from sqlalchemy import delete, select
 from sqlalchemy.exc import IntegrityError
 from sqlmodel import col
 
-from src.history.repo.models import HistoryDb, HistoryItemDb
+from src.history.async_sqlalchemy.models import HistoryDb, HistoryItemDb
 from tests.conftest import get_test_session
 
 HISTORY_ID = uuid4()

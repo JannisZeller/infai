@@ -2,7 +2,7 @@ from uuid import UUID
 
 from pydantic import BaseModel
 
-from src.history.repo.mapper import HistoryItemKind
+from src.history.models import HistoryItemKind
 
 
 class RAGItem(BaseModel):

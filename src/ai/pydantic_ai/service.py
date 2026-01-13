@@ -18,8 +18,8 @@ from src.ai.models import (
 from src.ai.port import AIService
 from src.ai.prompts import PromptsService
 from src.ai.pydantic_ai.mapper import PydanticAiMapper
-from src.history.service.models import HistoryItem, UserPrompt
-from src.history.service.service import HistoryService
+from src.history.models import HistoryItem, UserPrompt
+from src.history.service import HistoryService
 from src.rag.service import RAGService
 
 

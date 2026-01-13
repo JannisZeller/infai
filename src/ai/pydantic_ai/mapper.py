@@ -6,7 +6,7 @@ from uuid import UUID
 import pydantic_ai.messages as paim
 
 from src.ai.models import ModelResponseDelta, StreamItem, SystemPrompt, ThinkingDelta
-from src.history.service.models import (
+from src.history.models import (
     HistoryItem,
     ModelResponse,
     ThinkingStep,

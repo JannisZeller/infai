@@ -1,6 +1,15 @@
 from dataclasses import dataclass
+from enum import Enum
 from typing import Any
 from uuid import UUID
+
+
+class HistoryItemKind(Enum):
+    USER_PROMPT = "user_prompt"
+    MODEL_RESPONSE = "model_response"
+    THINKING_STEP = "thinking_step"
+    TOOL_CALL = "tool_call"
+    TOOL_RESULT = "tool_result"
 
 
 @dataclass(frozen=True)

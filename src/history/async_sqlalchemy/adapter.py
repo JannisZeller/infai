@@ -7,10 +7,10 @@ from sqlalchemy.orm import joinedload
 from sqlmodel import col
 
 from src.core.database import get_session
-from src.history.repo.mapper import map_history_item_to_db, map_history_item_to_domain
-from src.history.repo.models import HistoryDb
-from src.history.service.models import History, HistoryItem
-from src.history.service.repo_interface import HistoryRepo
+from src.history.async_sqlalchemy.mapper import map_history_item_to_db, map_history_item_to_domain
+from src.history.async_sqlalchemy.models import HistoryDb
+from src.history.models import History, HistoryItem
+from src.history.port import HistoryRepo
 
 
 class AsyncSqlalchemyHistoryRepo(HistoryRepo):

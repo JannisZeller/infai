@@ -5,7 +5,7 @@ from shutil import rmtree
 from sqlalchemy import delete
 
 from src.core.database import create_db_and_tables, get_engine, get_session
-from src.history.repo.models import HistoryDb, HistoryItemDb
+from src.history.async_sqlalchemy.models import HistoryDb, HistoryItemDb
 
 # Order matters because of foreign key constraints
 DBMODELS_TO_DELETE = [HistoryItemDb, HistoryDb]

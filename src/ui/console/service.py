@@ -11,7 +11,7 @@ from src.ai.models import (
     SystemPrompt,
     ThinkingDelta,
 )
-from src.history.service.models import ModelResponse, ThinkingStep, ToolCall, ToolResult, UserPrompt
+from src.history.models import ModelResponse, ThinkingStep, ToolCall, ToolResult, UserPrompt
 
 
 class ConsoleService:

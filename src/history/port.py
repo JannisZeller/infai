@@ -1,7 +1,7 @@
 from typing import Protocol
 from uuid import UUID
 
-from src.history.service.models import History, HistoryItem
+from src.history.models import History, HistoryItem
 
 
 class HistoryRepo(Protocol):

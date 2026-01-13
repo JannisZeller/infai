@@ -1,7 +1,7 @@
 from typing import AsyncIterator, Protocol
 
 from src.ai.models import StreamItem
-from src.history.service.models import UserPrompt
+from src.history.models import UserPrompt
 
 
 class AIService(Protocol):

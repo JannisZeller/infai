@@ -1,22 +1,13 @@
-from enum import Enum
-
-from src.history.repo.models import HistoryItemDb
-from src.history.service.models import (
+from src.history.async_sqlalchemy.models import HistoryItemDb
+from src.history.models import (
     HistoryItem,
+    HistoryItemKind,
     ModelResponse,
     ThinkingStep,
     ToolCall,
     ToolResult,
     UserPrompt,
 )
-
-
-class HistoryItemKind(Enum):
-    USER_PROMPT = "user_prompt"
-    MODEL_RESPONSE = "model_response"
-    THINKING_STEP = "thinking_step"
-    TOOL_CALL = "tool_call"
-    TOOL_RESULT = "tool_result"
 
 
 def map_history_item_to_db(history_item: HistoryItem) -> HistoryItemDb:

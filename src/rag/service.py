@@ -7,9 +7,8 @@ from qdrant_client import AsyncQdrantClient
 from qdrant_client import models as qdm
 
 from src.ai.models import SystemPrompt
-from src.history.repo.mapper import HistoryItemKind
-from src.history.service.models import HistoryItem, ModelResponse, UserPrompt
-from src.history.service.service import HistoryService
+from src.history.models import HistoryItem, HistoryItemKind, ModelResponse, UserPrompt
+from src.history.service import HistoryService
 from src.rag.clients import AzureOpenAIClientProvider, OpenAIProvider, QdrantClientProvider
 from src.rag.models import Embedding, RAGItem
 

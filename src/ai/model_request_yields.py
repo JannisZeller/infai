@@ -4,7 +4,7 @@ from time import time_ns
 from uuid import UUID, uuid4
 
 from src.ai.models import ModelResponseDelta, PartStart, ThinkingDelta
-from src.history.service.models import ModelResponse, ThinkingStep
+from src.history.models import ModelResponse, ThinkingStep
 
 
 class PartState(Enum):

@@ -4,7 +4,7 @@ from uuid import UUID, uuid4
 
 from src.ai.models import StreamItem
 from src.ai.port import AIService
-from src.history.service.models import UserPrompt
+from src.history.models import UserPrompt
 
 
 class ChatUseCase:

@@ -1,4 +1,4 @@
-from src.history.service.models import History, UserPrompt
+from src.history.models import History, UserPrompt
 
 
 def compare_user_prompt(prompt: UserPrompt, other_prompt: UserPrompt):
