@@ -44,8 +44,6 @@ class ConsoleService:
                     self._handle_tool_result(item)
                 case StreamEnd():
                     pass
-                    # self._console.print("\n")
-                    # Don't break - let the generator complete naturally to prevent async-context issues
                 case ModelResponse() | ThinkingStep():
                     self._console.print()
                 case UserPrompt() | SystemPrompt():
@@ -53,8 +51,6 @@ class ConsoleService:
 
     def _handle_part_start(self, label: str, style: str = "bold cyan"):
         """Handle the start of a new part with visual separation."""
-        # if not self._no_part_yet:
-        #     self._console.print("\n")  # Add spacing between sections
         self._no_part_yet = False
         self._console.print(f"\n[{style}]{label}[/{style}]")
 
