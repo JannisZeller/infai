@@ -1,17 +1,21 @@
 import logging
 import os
 
+from src.config.models import Config
 
-def configure_logging(enable_sql_file_logging: bool = False):
+
+def configure_logging(config: Config):
     """
     Configure logging to suppress SQLAlchemy console output.
 
     Args:
-        enable_sql_file_logging: If True, logs SQL to data/logs/sqlalchemy.log
+        config: The configuration. If the logging path is set, logs SQL to the path.
+        If the logging path is not set, logs SQL to the console.
     """
-    if enable_sql_file_logging:
+    logging_path = config.logging_path
+    if logging_path:
         # Create logs directory if it doesn't exist
-        os.makedirs("data/logs", exist_ok=True)
+        os.makedirs(logging_path, exist_ok=True)
 
         # Configure SQLAlchemy logger to write to file only
         sqlalchemy_logger = logging.getLogger("sqlalchemy.engine")
@@ -19,7 +23,7 @@ def configure_logging(enable_sql_file_logging: bool = False):
         sqlalchemy_logger.handlers.clear()
 
         # Add file handler
-        file_handler = logging.FileHandler("data/logs/sqlalchemy.log")
+        file_handler = logging.FileHandler(logging_path / "sqlalchemy.log")
         file_handler.setLevel(logging.INFO)
         formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
         file_handler.setFormatter(formatter)

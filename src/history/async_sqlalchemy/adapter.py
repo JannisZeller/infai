@@ -10,10 +10,9 @@ from src.core.database import get_session
 from src.history.async_sqlalchemy.mapper import map_history_item_to_db, map_history_item_to_domain
 from src.history.async_sqlalchemy.models import HistoryDb
 from src.history.models import History, HistoryItem
-from src.history.port import HistoryRepo
 
 
-class AsyncSqlalchemyHistoryRepo(HistoryRepo):
+class AsyncSqlalchemyHistoryRepo:
     def __init__(self, engine: AsyncEngine):
         self._engine = engine
 

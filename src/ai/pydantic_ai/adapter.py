@@ -15,7 +15,6 @@ from src.ai.models import (
     StreamItem,
     SystemPrompt,
 )
-from src.ai.port import AIService
 from src.ai.prompts import PromptsService
 from src.ai.pydantic_ai.mapper import PydanticAiMapper
 from src.history.models import HistoryItem, UserPrompt
@@ -31,7 +30,7 @@ def dummy_tool(string: str) -> str:
 dummy_tools = FunctionToolset(tools=[dummy_tool])
 
 
-class PydanticAIService(AIService):
+class PydanticAIService:
     # Streaming logic following https://ai.pydantic.dev/agents/
     def __init__(
         self,

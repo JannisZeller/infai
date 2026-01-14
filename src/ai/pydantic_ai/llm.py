@@ -1,46 +1,34 @@
-import os
 from functools import lru_cache
 
 from pydantic_ai.models.openai import OpenAIChatModel, OpenAIResponsesModel, OpenAIResponsesModelSettings
 from pydantic_ai.providers.ollama import OllamaProvider
 from pydantic_ai.providers.openai import OpenAIProvider
 
-# from pydantic_ai.providers.azure import AzureProvider
+from src.config.models import Config
 
 
 @lru_cache
-def get_openai():
-    api_key = os.getenv("OPENAI_API_KEY")
-    if not api_key:
-        raise ValueError("OPENAI_API_KEY is not set in .env")
-    base_url = os.getenv("OPENAI_BASE_URL")
-    if not base_url:
-        raise ValueError("OPENAI_BASE_URL is not set in .env")
+def get_openai(config: Config):
     provider = OpenAIProvider(
-        base_url=base_url,
-        api_key=api_key,
+        base_url=config.openai_base_url,
+        api_key=config.openai_api_key,
     )
-    # provider = AzureProvider(
-    #     azure_endpoint=os.getenv("AZURE_AIF_URL"),
-    #     api_version="2025-03-01-preview",
-    #     api_key=os.getenv("AZURE_AIF_KEY"),
-    # )
     settings = OpenAIResponsesModelSettings(
-        openai_reasoning_effort="medium",
-        openai_reasoning_summary="detailed",
+        openai_reasoning_effort=config.openai_reasoning_effort,
+        openai_reasoning_summary=config.openai_reasoning_summary,
         parallel_tool_calls=True,
     )
     return OpenAIResponsesModel(
-        model_name="gpt-5.2",
+        model_name=config.openai_model_name,
         provider=provider,
         settings=settings,
     )
 
 
 @lru_cache
-def get_ollama():
-    provider = OllamaProvider(base_url="http://localhost:11434/v1")
+def get_ollama(config: Config):
+    provider = OllamaProvider(base_url=config.ollama_base_url)
     return OpenAIChatModel(
-        model_name="ministral-3:3b",
+        model_name=config.ollama_model_name,
         provider=provider,
     )
