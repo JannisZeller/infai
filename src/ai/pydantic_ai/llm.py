@@ -25,7 +25,7 @@ async def _ping_model(model: OpenAIResponsesModel | OpenAIChatModel):
     )
 
 
-async def get_openai(cfg: OpenAIConfig):
+def get_openai_responses(cfg: OpenAIConfig):
     provider = OpenAIProvider(
         base_url=cfg.base_url,
         api_key=cfg.api_key,
@@ -46,7 +46,19 @@ async def get_openai(cfg: OpenAIConfig):
     )
 
 
-async def get_ollama(cfg: OllamaConfig):
+def get_openai_chat_completions(cfg: OpenAIConfig):
+    provider = OpenAIProvider(
+        base_url=cfg.base_url,
+        api_key=cfg.api_key,
+    )
+
+    return OpenAIChatModel(
+        model_name=cfg.model_name,
+        provider=provider,
+    )
+
+
+def get_ollama(cfg: OllamaConfig):
     if not cfg.model_name:
         raise ValueError("Ollama model name is not set")
 
@@ -64,9 +76,13 @@ async def get_ollama(cfg: OllamaConfig):
 @lru_cache
 async def get_llm(config: OpenAIConfig | OllamaConfig) -> OpenAIResponsesModel | OpenAIChatModel:
     if isinstance(config, OpenAIConfig):
-        model = await get_openai(config)
+        match config.api_type:
+            case "responses":
+                model = get_openai_responses(config)
+            case "completions":
+                model = get_openai_chat_completions(config)
     else:
-        model = await get_ollama(config)
+        model = get_ollama(config)
 
     logger.info(f"LLM: Pinging {model.model_name}...")
     try:

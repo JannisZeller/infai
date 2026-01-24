@@ -1,5 +1,5 @@
 from time import time_ns
-from typing import AsyncIterator
+from typing import Any, AsyncIterator, Callable
 from uuid import UUID, uuid4
 
 import pydantic_ai.messages as paim
@@ -19,10 +19,13 @@ from src.ai.prompts import PromptsService
 from src.ai.pydantic_ai.mapper import PydanticAiMapper
 from src.ai.pydantic_ai.tools import PydanticAIToolProvider
 from src.config.models import Config
+from src.core.logging import get_logger
 from src.history.models import HistoryItem, UserPrompt
 from src.history.service import HistoryService
 from src.rag.port import RAGService
 from src.tools.models import ToolSet
+
+logger = get_logger(__name__, output="console")
 
 
 def dummy_tool(string: str) -> str:
@@ -57,6 +60,36 @@ class PydanticAIService:
                 await self._rag_service.add_history_items([user_prompt])
             yield user_prompt
 
+    def _try_extracting_raw_content_start_of_part(
+        self,
+        current_part: ModelRequestCurrentPart,
+        event: paim.PartStartEvent,
+    ):
+        # Best effort to handle provider_details for not standard OpenAI APIs.
+        try:
+            if current_part.provider_details and not event.part.has_content():
+                raw_content: list[str] = current_part.provider_details["raw_content"]
+                if raw_content:
+                    return current_part.add_content_and_yield_delta(content="".join(raw_content))
+        except Exception as exc:
+            logger.warning(f"Failed to extract raw content from provider_details: {exc}")
+
+    def _try_extracting_raw_content_delta(
+        self,
+        current_part: ModelRequestCurrentPart,
+        provider_details: Callable[[dict[str, Any]], dict[str, Any]],
+    ):
+        # Best effort to handle provider_details-callable for not standard OpenAI APIs.
+        try:
+            assert current_part.provider_details, "provider_details must be set"
+            new_provider_details = provider_details(current_part.provider_details)
+            delta = new_provider_details["raw_content"][-1]
+            if delta:
+                return current_part.add_content_and_yield_delta(content=delta)
+        except Exception as exc:
+            logger.warning(f"Failed to extract raw content from provider_details (callable): {exc}")
+            return None
+
     async def _handle_model_request_node(
         self,
         node: ModelRequestNode,  # type: ignore
@@ -86,8 +119,20 @@ class PydanticAIService:
                                 # Add content and yield delta if present using a separator to fix the formatting.
                                 # Multiple thinking parts might be in a row.
                                 # Other than for the TextPart below we always yield
-                                # because we at least have the separator.
-                                yield current_part.add_content_and_yield_delta(content=separator + event.part.content)
+                                # because we at least have the separator if there's content.
+                                # Only yield if there's actual content to avoid empty deltas.
+                                content = separator + event.part.content
+                                if content:
+                                    yield current_part.add_content_and_yield_delta(content=content)
+                                else:
+                                    current_part.provider_details = event.part.provider_details
+                                    if current_part.provider_details:
+                                        extracted_content = self._try_extracting_raw_content_start_of_part(
+                                            current_part=current_part,
+                                            event=event,
+                                        )
+                                        if extracted_content:
+                                            yield extracted_content
 
                             case paim.TextPart():
                                 if current_part.is_streaming_but_not_in_state(PartState.TALKING):
@@ -100,6 +145,16 @@ class PydanticAIService:
 
                                 if event.part.has_content():
                                     yield current_part.add_content_and_yield_delta(event.part.content)
+
+                                else:
+                                    current_part.provider_details = event.part.provider_details
+                                    if current_part.provider_details:
+                                        extracted_content = self._try_extracting_raw_content_start_of_part(
+                                            current_part=current_part,
+                                            event=event,
+                                        )
+                                        if extracted_content:
+                                            yield extracted_content
 
                             case paim.ToolCallPart():
                                 # Special handling: TOOL_CALL_PREP is a state for (potentially) multiple tool calls
@@ -121,15 +176,43 @@ class PydanticAIService:
 
                     case paim.PartDeltaEvent():
                         match event.delta:
-                            case paim.ThinkingPartDelta() | paim.TextPartDelta():
+                            case paim.ThinkingPartDelta():
                                 if event.delta.content_delta:
                                     yield current_part.add_content_and_yield_delta(content=event.delta.content_delta)
+
+                                elif event.delta.provider_details:
+                                    if callable(event.delta.provider_details):
+                                        extracted_content = self._try_extracting_raw_content_delta(
+                                            current_part=current_part,
+                                            provider_details=event.delta.provider_details,  # type: ignore
+                                        )
+                                        if extracted_content:
+                                            yield extracted_content
+                                    else:
+                                        logger.error("Processing provider_details of type dict is not supported yet.")
+
+                            case paim.TextPartDelta():
+                                if event.delta.content_delta:
+                                    yield current_part.add_content_and_yield_delta(content=event.delta.content_delta)
+
+                                elif event.delta.provider_details:
+                                    if callable(event.delta.provider_details):
+                                        extracted_content = self._try_extracting_raw_content_delta(
+                                            current_part=current_part,
+                                            provider_details=event.delta.provider_details,  # type: ignore
+                                        )
+                                        if extracted_content:
+                                            yield extracted_content
+                                    else:
+                                        logger.error("Processing provider_details of type dict is not supported yet.")
+
                             case paim.ToolCallPartDelta():
                                 pass
 
                     case paim.PartEndEvent():
                         # Do not flush on PartEndEvent - we want to collapse consecutive parts of the same type.
                         pass
+
                     case paim.FinalResultEvent():
                         # Currently, streaming structured output is not supported, we use the TextPartDeltas directly.
                         pass
@@ -143,22 +226,25 @@ class PydanticAIService:
         # A handle-response node => The model returned some data, potentially calls a tool
         async with node.stream(run.ctx) as handle_stream:  # type: ignore
             async for event in handle_stream:
-                if isinstance(event, paim.FunctionToolCallEvent):
-                    tool_call = PydanticAiMapper.map_tool_call_out(
-                        pai_tool_call=event.part,
-                        id=uuid4(),
-                        history_id=history_id,
-                    )
-                    await self._history_service.add_history_item(tool_call)
-                    yield tool_call
-                elif isinstance(event, paim.FunctionToolResultEvent):
-                    tool_result = PydanticAiMapper.map_tool_result_out(
-                        pai_tool_result=event.result,
-                        id=uuid4(),
-                        history_id=history_id,
-                    )
-                    await self._history_service.add_history_item(tool_result)
-                    yield tool_result
+                match event:
+                    case paim.FunctionToolCallEvent():
+                        tool_call = PydanticAiMapper.map_tool_call_out(
+                            pai_tool_call=event.part,
+                            id=uuid4(),
+                            history_id=history_id,
+                        )
+                        await self._history_service.add_history_item(tool_call)
+                        yield tool_call
+                    case paim.FunctionToolResultEvent():
+                        tool_result = PydanticAiMapper.map_tool_result_out(
+                            pai_tool_result=event.result,
+                            id=uuid4(),
+                            history_id=history_id,
+                        )
+                        await self._history_service.add_history_item(tool_result)
+                        yield tool_result
+                    case _:
+                        logger.warning(f"Unexpected CallToolsNode event in AI execution loop: {event} skipping.")
 
     async def _handle_end_node(self, node: EndNode, run: AgentRun, history_id: UUID) -> AsyncIterator[StreamItem]:  # type: ignore
         yield StreamEnd(id=uuid4(), history_id=history_id, created_at=time_ns())

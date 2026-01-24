@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 from enum import Enum
 from time import time_ns
+from typing import Any
 from uuid import UUID, uuid4
 
 from src.ai.models import ModelResponseDelta, PartStart, ThinkingDelta
@@ -30,6 +31,7 @@ class ModelRequestCurrentPart:
     id: UUID | None = None
     state: PartState = PartState.NO_STREAM
     content: str = ""
+    provider_details: dict[str, Any] | None = None
 
     def is_streaming_but_not_in_state(self, state: PartState) -> bool:
         """Check if we're currently tracking a part but not in the given state."""

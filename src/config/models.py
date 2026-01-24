@@ -19,6 +19,7 @@ class OpenAIConfig:
     base_url: str
     api_key: str
     model_name: str
+    api_type: Literal["completions", "responses"]
     openai_reasoning_effort: Literal["low", "medium", "high"] | None
     openai_reasoning_summary: Literal["concise", "detailed"] | None
 

@@ -23,9 +23,10 @@ class InlineConfigProvider:
         openai_config = OpenAIConfig(
             base_url=InlineConfigProvider._get_llm_base_url(),
             api_key=InlineConfigProvider._get_llm_api_key(),
-            model_name="gpt-5.2",  # "tngtech/DeepSeek-TNG-R1T2-Chimera",  # "zai-org/GLM-4.7-Flash",
+            model_name="zai-org/GLM-4.7-Flash",  # "gpt-5.2",  # "tngtech/DeepSeek-TNG-R1T2-Chimera",  # "zai-org/GLM-4.7-Flash",
             openai_reasoning_effort="medium",
             openai_reasoning_summary="detailed",
+            api_type="responses",
         )
 
         return Config(
