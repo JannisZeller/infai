@@ -46,6 +46,14 @@ class EmbedderConfig:
 
 
 @dataclass(frozen=True)
+class ChatConfig:
+    """Chat config."""
+
+    last_n_history_items: int  # The number of history items to use for each chat iteration
+    n_memory_items: int  # The number of memory items to use for each chat iteration
+
+
+@dataclass(frozen=True)
 class Config:
     """The Configuration for the application."""
 
@@ -64,3 +72,6 @@ class Config:
 
     # Logging
     logging: LoggingConfig
+
+    # Chat
+    chat_config: ChatConfig

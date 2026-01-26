@@ -55,6 +55,8 @@ async def main():
             create_dumcp_tool_set(),
             # create_dumcp_remote_tool_set(),
         ],
+        last_n_history_items=config.chat_config.last_n_history_items,
+        n_memory_items=config.chat_config.n_memory_items,
     )
 
     if config.ui == "console":

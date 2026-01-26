@@ -4,7 +4,7 @@ from uuid import UUID, uuid4
 
 from dotenv import load_dotenv
 
-from src.config.models import Config, EmbedderConfig, LoggingConfig, OllamaConfig, OpenAIConfig
+from src.config.models import ChatConfig, Config, EmbedderConfig, LoggingConfig, OllamaConfig, OpenAIConfig
 from src.core.exceptions import InvalidConfigurationError
 
 load_dotenv()
@@ -55,6 +55,11 @@ class InlineConfigProvider:
                 },
                 main_logging_filename="main.log",
                 mcp_logging_filename="mcp.log",
+            ),
+            # Chat
+            chat_config=ChatConfig(
+                last_n_history_items=10,
+                n_memory_items=10,
             ),
         )
 
