@@ -3,7 +3,7 @@ from uuid import UUID
 
 from src.ai.models import SystemPrompt
 from src.history.models import History, HistoryItem
-from src.history.port import HistoryRepo
+from src.history.repo.port import HistoryRepo
 
 
 class HistoryService:

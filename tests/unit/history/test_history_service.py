@@ -4,10 +4,10 @@ from uuid import uuid4
 import pytest
 
 from src.history.models import History, UserPrompt
-from src.history.port import HistoryRepo
+from src.history.repo.port import HistoryRepo
 from src.history.service import HistoryService
 from tests.conftest import as_mock
-from tests.history.utils import compare_user_prompt
+from tests.utils.history.model_comps import compare_user_prompt
 
 HISTORY_ID = uuid4()
 

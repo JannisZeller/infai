@@ -1,4 +1,3 @@
-from src.history.async_sqlalchemy.models import HistoryItemDb
 from src.history.models import (
     HistoryItem,
     HistoryItemKind,
@@ -8,6 +7,7 @@ from src.history.models import (
     ToolResult,
     UserPrompt,
 )
+from src.history.repo.async_sqlalchemy.models import HistoryItemDb
 
 
 def map_history_item_to_db(history_item: HistoryItem) -> HistoryItemDb:

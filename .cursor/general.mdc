@@ -1,7 +1,0 @@
----
-alwaysApply: true
----
-
-# General Rules
-
-- Always use absolute imports.

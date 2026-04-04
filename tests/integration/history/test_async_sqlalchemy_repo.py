@@ -6,11 +6,11 @@ from sqlalchemy import delete
 from sqlalchemy.ext.asyncio import AsyncEngine
 from sqlmodel import col
 
-from src.history.async_sqlalchemy.adapter import AsyncSqlalchemyHistoryRepo
-from src.history.async_sqlalchemy.models import HistoryDb, HistoryItemDb
 from src.history.models import UserPrompt
+from src.history.repo.async_sqlalchemy.adapter import AsyncSqlalchemyHistoryRepo
+from src.history.repo.async_sqlalchemy.models import HistoryDb, HistoryItemDb
 from tests.conftest import get_test_session
-from tests.history.utils import compare_user_prompt
+from tests.utils.history.model_comps import compare_user_prompt
 
 HISTORY_ID = uuid4()
 

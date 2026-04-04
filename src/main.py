@@ -9,7 +9,7 @@ from src.config.factory import get_config
 from src.core.database import get_engine
 from src.core.exceptions import InvalidConfigurationError, ResourceNotAvailableError
 from src.core.logging import configure_module_logging, get_logger
-from src.history.async_sqlalchemy.adapter import AsyncSqlalchemyHistoryRepo
+from src.history.repo.async_sqlalchemy.adapter import AsyncSqlalchemyHistoryRepo
 from src.history.service import HistoryService
 from src.rag.factory import get_rag_service_or_none
 from src.tools.factories.dumcp import create_dumcp_tool_set

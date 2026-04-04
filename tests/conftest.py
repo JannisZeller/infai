@@ -5,11 +5,22 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 
 from src.core.database import SessionContext, create_db_and_tables, get_engine, get_session
-from src.history.port import HistoryRepo
+from src.history.repo.port import HistoryRepo
+
+## Helpers
 
 
 def as_mock(obj: Any) -> MagicMock:
     return obj
+
+
+def as_async_mock(obj: Any) -> AsyncMock:
+    return obj
+
+
+#
+# Integration Fixtures
+#
 
 
 @asynccontextmanager
@@ -24,6 +35,11 @@ async def get_test_session() -> SessionContext:
 @pytest.fixture
 def engine():
     return get_engine()
+
+
+#
+# Repository Fixtures
+#
 
 
 @pytest.fixture
