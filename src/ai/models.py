@@ -56,6 +56,23 @@ class ToolApprovalDecision:
     denial_message: str | None = None
 
 
-LiveItem = SystemPrompt | PartStart | ModelResponseDelta | ThinkingDelta | StreamEnd | ToolApprovalRequest
+@dataclass(frozen=True)
+class MCPAppLaunchRequest(BaseLiveItem):
+    tool_call_id: str
+    tool_name: str
+    url: str
+    title: str | None = None
+    source: Literal["tool_result", "tool_result_metadata"] = "tool_result"
+
+
+LiveItem = (
+    SystemPrompt
+    | PartStart
+    | ModelResponseDelta
+    | ThinkingDelta
+    | StreamEnd
+    | ToolApprovalRequest
+    | MCPAppLaunchRequest
+)
 
 StreamItem = LiveItem | HistoryItem

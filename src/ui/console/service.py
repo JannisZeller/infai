@@ -1,9 +1,11 @@
+import webbrowser
 from typing import AsyncIterator
 
 from rich.console import Console
 from rich.panel import Panel
 
 from src.ai.models import (
+    MCPAppLaunchRequest,
     ModelResponseDelta,
     PartStart,
     StreamEnd,
@@ -19,9 +21,10 @@ from src.history.models import ModelResponse, ThinkingStep, ToolCall, ToolResult
 class ConsoleService:
     """Service for rendering AI stream items to the console using Rich."""
 
-    def __init__(self):
+    def __init__(self, open_browser=webbrowser.open):
         self._console = Console()
         self._no_part_yet = True
+        self._open_browser = open_browser
 
     async def consume_stream(self, stream: AsyncIterator[StreamItem]) -> list[ToolApprovalRequest]:
         """
@@ -50,6 +53,8 @@ class ConsoleService:
                 case ToolApprovalRequest():
                     approval_requests.append(item)
                     self._handle_tool_approval_request(item)
+                case MCPAppLaunchRequest():
+                    self._handle_mcp_app_launch_request(item)
                 case ModelResponse() | ThinkingStep():
                     self._console.print()
                 case UserPrompt() | SystemPrompt():
@@ -115,3 +120,19 @@ class ConsoleService:
             approved=approved,
             denial_message=None if approved else "The tool call was denied by the user.",
         )
+
+    def _handle_mcp_app_launch_request(self, app_launch_request: MCPAppLaunchRequest):
+        title = app_launch_request.title or app_launch_request.tool_name
+        launch_panel = Panel(
+            f"[cyan]App:[/cyan] [bold]{title}[/bold]\n"
+            f"[cyan]URL:[/cyan] {app_launch_request.url}\n"
+            f"[dim]Call ID: {app_launch_request.tool_call_id}[/dim]",
+            title="🧩 MCP App Launch",
+            border_style="blue",
+            padding=(0, 1),
+        )
+        self._console.print(launch_panel)
+
+        response = input(f"Open MCP app '{title}' in browser? [y/N]: ").strip().lower()
+        if response in {"y", "yes"}:
+            self._open_browser(app_launch_request.url)

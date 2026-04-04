@@ -12,6 +12,7 @@ from pydantic_ai.models.openai import OpenAIChatModel, OpenAIResponsesModel
 from pydantic_graph.nodes import End as EndNode
 
 from src.ai.history_preprocessor import preprocess_history
+from src.ai.mcp_app_launch import parse_mcp_app_launch_request
 from src.ai.model_request_yields import ModelRequestCurrentPart, PartState
 from src.ai.models import (
     StreamEnd,
@@ -198,6 +199,9 @@ class PydanticAIService:
                     )
                     await self._history_service.add_history_item(tool_result)
                     yield tool_result
+                    app_launch_request = parse_mcp_app_launch_request(tool_result)
+                    if app_launch_request is not None:
+                        yield app_launch_request
 
     async def _handle_end_node(self, node: EndNode, run: AgentRun, history_id: UUID) -> AsyncIterator[StreamItem]:
         yield StreamEnd(id=uuid4(), history_id=history_id, created_at=time_ns())
