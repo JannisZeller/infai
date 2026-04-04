@@ -2,7 +2,7 @@ from time import time_ns
 from typing import AsyncIterator
 from uuid import UUID, uuid4
 
-from src.ai.models import StreamItem
+from src.ai.models import StreamItem, ToolApprovalDecision
 from src.ai.port import AIService
 from src.history.models import UserPrompt
 from src.tools.models import ToolSet
@@ -36,3 +36,6 @@ class ChatUseCase:
             n_memory_items=self._n_memory_items,
             tool_sets=self._tool_sets,
         )
+
+    async def resume(self, resume_token: str, approvals: list[ToolApprovalDecision]) -> AsyncIterator[StreamItem]:
+        return self._ai_service.resume_agent_run(resume_token=resume_token, approvals=approvals)

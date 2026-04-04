@@ -28,7 +28,7 @@ async def main():
 
     configure_module_logging(config)
 
-    history_repo = AsyncSqlalchemyHistoryRepo(engine=get_engine())
+    history_repo = AsyncSqlalchemyHistoryRepo(engine=get_engine(config.database.connection_string))
     history_service = HistoryService(history_repo=history_repo)
 
     try:

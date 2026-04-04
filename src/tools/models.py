@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any, Callable, Literal
 
 
@@ -6,6 +6,7 @@ from typing import Any, Callable, Literal
 class Tool:
     name: str
     system_prompt: str
+    requires_approval: bool = field(default=False, kw_only=True)
 
 
 @dataclass(frozen=True)

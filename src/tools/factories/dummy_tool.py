@@ -13,6 +13,7 @@ def create_dummy_tool_set() -> FunctionToolSet:
                 name="dummy_tool",
                 function=dummy_tool_function,
                 system_prompt="You are a dummy tool that returns the input text.",
+                requires_approval=True,
             )
         ],
     )

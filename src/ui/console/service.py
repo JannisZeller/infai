@@ -10,6 +10,8 @@ from src.ai.models import (
     StreamItem,
     SystemPrompt,
     ThinkingDelta,
+    ToolApprovalDecision,
+    ToolApprovalRequest,
 )
 from src.history.models import ModelResponse, ThinkingStep, ToolCall, ToolResult, UserPrompt
 
@@ -21,7 +23,7 @@ class ConsoleService:
         self._console = Console()
         self._no_part_yet = True
 
-    async def consume_stream(self, stream: AsyncIterator[StreamItem]):
+    async def consume_stream(self, stream: AsyncIterator[StreamItem]) -> list[ToolApprovalRequest]:
         """
         Consume a stream of StreamItems and render them to the console.
 
@@ -29,6 +31,7 @@ class ConsoleService:
             stream: An async iterator of StreamItem objects from the AI service
         """
         self._no_part_yet = True
+        approval_requests: list[ToolApprovalRequest] = []
 
         async for item in stream:
             match item:
@@ -44,10 +47,15 @@ class ConsoleService:
                     self._handle_tool_result(item)
                 case StreamEnd():
                     pass
+                case ToolApprovalRequest():
+                    approval_requests.append(item)
+                    self._handle_tool_approval_request(item)
                 case ModelResponse() | ThinkingStep():
                     self._console.print()
                 case UserPrompt() | SystemPrompt():
                     pass
+
+        return approval_requests
 
     def _handle_part_start(self, label: str, style: str = "bold cyan"):
         """Handle the start of a new part with visual separation."""
@@ -86,3 +94,24 @@ class ConsoleService:
             padding=(0, 1),
         )
         self._console.print(result_panel)
+
+    def _handle_tool_approval_request(self, tool_approval_request: ToolApprovalRequest):
+        """Render a tool approval request as a rich panel."""
+        approval_panel = Panel(
+            f"[cyan]Tool:[/cyan] [bold]{tool_approval_request.tool_name}[/bold]\n"
+            f"[cyan]Args:[/cyan] {tool_approval_request.args}\n"
+            f"[dim]Call ID: {tool_approval_request.tool_call_id}[/dim]",
+            title="⏸️ Tool Approval Required",
+            border_style="yellow",
+            padding=(0, 1),
+        )
+        self._console.print(approval_panel)
+
+    def prompt_tool_approval(self, tool_approval_request: ToolApprovalRequest) -> ToolApprovalDecision:
+        response = input(f"Approve tool call '{tool_approval_request.tool_name}'? [y/N]: ").strip().lower()
+        approved = response in {"y", "yes"}
+        return ToolApprovalDecision(
+            tool_call_id=tool_approval_request.tool_call_id,
+            approved=approved,
+            denial_message=None if approved else "The tool call was denied by the user.",
+        )

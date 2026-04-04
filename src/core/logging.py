@@ -4,6 +4,7 @@ from typing import Literal
 
 from src.config.factory import get_config
 from src.config.models import Config
+from src.core.exceptions import InvalidConfigurationError
 
 
 def configure_module_logging(config: Config):
@@ -115,8 +116,14 @@ def get_logger(
         logger = get_logger(__name__, config, output="both")
     """
 
-    config = config or get_config()
-    cfg = config.logging
+    cfg = None
+    if config is not None:
+        cfg = config.logging
+    elif output in ("file", "both"):
+        try:
+            cfg = get_config().logging
+        except InvalidConfigurationError:
+            output = "console"
 
     logger = logging.getLogger(name)
     logger.setLevel(level)
@@ -135,7 +142,7 @@ def get_logger(
         logger.addHandler(console_handler)
 
     if output in ("file", "both"):
-        if cfg.base_path:
+        if cfg and cfg.base_path:
             cfg.base_path.mkdir(parents=True, exist_ok=True)
             log_file = cfg.base_path / cfg.main_logging_filename
 

@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import Literal
+from typing import Any, Literal
 from uuid import UUID
 
 from src.history.models import HistoryItem
@@ -40,6 +40,22 @@ class StreamEnd(BaseLiveItem):
     pass
 
 
-LiveItem = SystemPrompt | PartStart | ModelResponseDelta | ThinkingDelta | StreamEnd
+@dataclass(frozen=True)
+class ToolApprovalRequest(BaseLiveItem):
+    resume_token: str
+    tool_call_id: str
+    tool_name: str
+    args: dict[str, Any] | str | None
+    metadata: dict[str, Any] | None = None
+
+
+@dataclass(frozen=True)
+class ToolApprovalDecision:
+    tool_call_id: str
+    approved: bool
+    denial_message: str | None = None
+
+
+LiveItem = SystemPrompt | PartStart | ModelResponseDelta | ThinkingDelta | StreamEnd | ToolApprovalRequest
 
 StreamItem = LiveItem | HistoryItem

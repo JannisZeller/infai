@@ -1,5 +1,3 @@
-from functools import lru_cache
-
 from pydantic_ai import ModelRequest, ModelResponse, UserPromptPart
 from pydantic_ai.models import ModelRequestParameters
 from pydantic_ai.models.openai import OpenAIChatModel, OpenAIResponsesModel, OpenAIResponsesModelSettings
@@ -11,6 +9,7 @@ from src.core.exceptions import ResourceNotAvailableError
 from src.core.logging import get_logger
 
 logger = get_logger("Startup: ", output="console", simple_format=True)
+_LLM_CACHE: dict[OpenAIConfig | OllamaConfig, OpenAIResponsesModel | OpenAIChatModel] = {}
 
 
 async def _ping_model(model: OpenAIResponsesModel | OpenAIChatModel):
@@ -61,8 +60,11 @@ async def get_ollama(cfg: OllamaConfig):
     )
 
 
-@lru_cache
 async def get_llm(config: OpenAIConfig | OllamaConfig) -> OpenAIResponsesModel | OpenAIChatModel:
+    cached_model = _LLM_CACHE.get(config)
+    if cached_model is not None:
+        return cached_model
+
     if isinstance(config, OpenAIConfig):
         model = await get_openai(config)
     else:
@@ -74,4 +76,5 @@ async def get_llm(config: OpenAIConfig | OllamaConfig) -> OpenAIResponsesModel |
     except Exception as e:
         raise ResourceNotAvailableError(f"LLM: Pinging {model.model_name} failed with error: {e}")
 
+    _LLM_CACHE[config] = model
     return model

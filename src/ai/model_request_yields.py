@@ -52,7 +52,7 @@ class ModelRequestCurrentPart:
             ModelRequestNodeYields - The delta to yield
         """
         assert self.state != PartState.NO_STREAM, (
-            "ModelRequestNodeCurrentPart must be in state NO_STREAM when adding content"
+            "ModelRequestNodeCurrentPart must not be in state NO_STREAM when adding content"
         )
         assert self.id is not None, "flow_item_id must be set when part is active when adding content"
 

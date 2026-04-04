@@ -2,7 +2,7 @@ from textwrap import dedent
 from time import time_ns
 from uuid import UUID, uuid4
 
-from openai import AsyncAzureOpenAI, AsyncOpenAI
+from openai import AsyncOpenAI
 from qdrant_client import AsyncQdrantClient
 from qdrant_client import models as qdm
 
@@ -16,7 +16,7 @@ from src.rag.qdrant.models import Embedding, QdrantRAGItem
 
 class QdrantRAGService:
     _qdrant_client: AsyncQdrantClient
-    _openai_client: AsyncAzureOpenAI | AsyncOpenAI
+    _openai_client: AsyncOpenAI
     _history_service: HistoryService
     _history_id: UUID
     _collection_name: str
@@ -86,6 +86,9 @@ class QdrantRAGService:
         while len(text) > self._embedding_chunk_max_chars:
             chunked_rag_docs.append(_create_rag_item(text[: self._embedding_chunk_max_chars]))
             text = text[self._embedding_chunk_max_chars - self._embedding_chunk_overlap_chars :]
+
+        if text:
+            chunked_rag_docs.append(_create_rag_item(text))
 
         return chunked_rag_docs
 

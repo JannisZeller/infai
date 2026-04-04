@@ -5,11 +5,13 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
+    "alembic>=1.17.0",
     "aiosqlite>=0.21.0",
     "azure-search-documents>=11.6.0",
-    "dotenv>=0.9.9",
+    "pydantic>=2.11.0",
     "pydantic-ai-slim[openai]>=1.46.0",
-    "pytest-asyncio>=0.23.3",
+    "python-dotenv>=1.1.1",
+    "pyyaml>=6.0.3",
     "qdrant-client>=1.16.1",
     "rich>=14.2.0",
     "sqlalchemy[asyncio]>=2.0.44",

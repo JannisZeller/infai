@@ -1,5 +1,5 @@
+from collections.abc import Sequence
 from time import time_ns
-from typing import Sequence
 from uuid import UUID
 
 import pydantic_ai.messages as paim
@@ -50,7 +50,7 @@ class PydanticAiMapper:
                     history_id=history_id,
                     prompt=pai_user_prompt,
                 )
-            case Sequence():
+            case Sequence() if not isinstance(pai_user_prompt, str):
                 full_user_prompt = ""
                 for user_prompt_part in pai_user_prompt:
                     if isinstance(user_prompt_part, str):

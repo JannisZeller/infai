@@ -23,7 +23,20 @@ class ConsoleAdapter(UI):
                     continue
 
                 stream = await self._chat_use_case.execute(user_prompt_str)
-                await self._console_service.consume_stream(stream)
+                approval_requests = await self._console_service.consume_stream(stream)
+
+                while approval_requests:
+                    resume_token = approval_requests[0].resume_token
+                    approval_decisions = [
+                        self._console_service.prompt_tool_approval(approval_request)
+                        for approval_request in approval_requests
+                    ]
+
+                    stream = await self._chat_use_case.resume(
+                        resume_token=resume_token,
+                        approvals=approval_decisions,
+                    )
+                    approval_requests = await self._console_service.consume_stream(stream)
             except KeyboardInterrupt:
                 break
             except Exception as e:

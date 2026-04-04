@@ -1,19 +1,22 @@
-from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal
 from uuid import UUID
 
+from pydantic import BaseModel, ConfigDict
 
-@dataclass(frozen=True)
-class LoggingConfig:
+
+class FrozenModel(BaseModel):
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+
+class LoggingConfig(FrozenModel):
     base_path: Path
     module_logging_filename_dict: dict[str, str]
     main_logging_filename: str
     mcp_logging_filename: str
 
 
-@dataclass(frozen=True)
-class OpenAIConfig:
+class OpenAIConfig(FrozenModel):
     """ "LLM config for OpenAI compatible APIs."""
 
     base_url: str
@@ -23,16 +26,14 @@ class OpenAIConfig:
     openai_reasoning_summary: Literal["concise", "detailed"] | None
 
 
-@dataclass(frozen=True)
-class OllamaConfig:
+class OllamaConfig(FrozenModel):
     """LLM config for Ollama."""
 
     base_url: str
     model_name: str
 
 
-@dataclass(frozen=True)
-class EmbedderConfig:
+class EmbedderConfig(FrozenModel):
     """Embedder config.
     Note that this should not be changed once it is setup and the RAG collection is created.
     Otherwise there will be dimensionality mismatches between the new and existing embeddings.
@@ -45,16 +46,43 @@ class EmbedderConfig:
     chunk_overlap_chars: int
 
 
-@dataclass(frozen=True)
-class ChatConfig:
+class ChatConfig(FrozenModel):
     """Chat config."""
 
     last_n_history_items: int  # The number of history items to use for each chat iteration
     n_memory_items: int  # The number of memory items to use for each chat iteration
 
 
-@dataclass(frozen=True)
-class Config:
+class DatabaseConfig(FrozenModel):
+    connection_string: str
+
+
+class HistoryConfig(FrozenModel):
+    id_file_path: Path
+
+
+class RAGConfig(FrozenModel):
+    qdrant_url: str | None
+
+
+class LLMProviderConfig(FrozenModel):
+    provider: Literal["openai", "ollama"]
+    openai: OpenAIConfig
+    ollama: OllamaConfig
+
+
+class FileConfig(FrozenModel):
+    ui: Literal["console"]
+    history: HistoryConfig
+    llm: LLMProviderConfig
+    rag: RAGConfig
+    embedder: EmbedderConfig
+    logging: LoggingConfig
+    chat: ChatConfig
+    database: DatabaseConfig
+
+
+class Config(FrozenModel):
     """The Configuration for the application."""
 
     # UI
@@ -75,3 +103,6 @@ class Config:
 
     # Chat
     chat_config: ChatConfig
+
+    # Database
+    database: DatabaseConfig

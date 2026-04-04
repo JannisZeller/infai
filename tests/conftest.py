@@ -1,11 +1,16 @@
 from contextlib import asynccontextmanager
+from pathlib import Path
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from src.core.database import SessionContext, create_db_and_tables, get_engine, get_session
+from src.core.database import DEFAULT_DATABASE_URL, SessionContext, get_engine, get_session, run_migrations
 from src.history.repo.port import HistoryRepo
+
+TEST_DATABASE_URL = DEFAULT_DATABASE_URL.replace("database.db", "test.database.db")
+TEST_DATABASE_PATH = Path("data/test.database.db")
+TEST_DATABASE_PATH.unlink(missing_ok=True)
 
 ## Helpers
 
@@ -25,8 +30,8 @@ def as_async_mock(obj: Any) -> AsyncMock:
 
 @asynccontextmanager
 async def get_test_session() -> SessionContext:
-    engine = get_engine()
-    await create_db_and_tables(engine)
+    run_migrations(TEST_DATABASE_URL)
+    engine = get_engine(TEST_DATABASE_URL)
 
     async with get_session(engine) as session:
         yield session
@@ -34,7 +39,7 @@ async def get_test_session() -> SessionContext:
 
 @pytest.fixture
 def engine():
-    return get_engine()
+    return get_engine(TEST_DATABASE_URL)
 
 
 #
