@@ -2,11 +2,11 @@ from time import time_ns
 from typing import Any
 from uuid import UUID, uuid4
 
-from sqlmodel import JSON, Column, Field, Relationship, SQLModel  # type: ignore
+from sqlmodel import JSON, Column, Field, Relationship, SQLModel
 
 
 class HistoryItemDb(SQLModel, table=True):
-    __tablename__ = "history_items"  # type: ignore
+    __tablename__ = "history_items"
 
     id: UUID = Field(default_factory=uuid4, primary_key=True, index=True)
     history_id: UUID = Field(foreign_key="history.id", nullable=False, index=True)
@@ -18,7 +18,7 @@ class HistoryItemDb(SQLModel, table=True):
 
 
 class HistoryDb(SQLModel, table=True):
-    __tablename__ = "history"  # type: ignore
+    __tablename__ = "history"
 
     id: UUID = Field(default_factory=uuid4, primary_key=True, index=True)
     created_at: int = Field(default_factory=time_ns, nullable=False, index=True)

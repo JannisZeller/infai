@@ -13,7 +13,7 @@ class QdrantRAGMapper:
                 text=history_item.prompt,
                 kind=HistoryItemKind.USER_PROMPT,
             )
-        elif isinstance(history_item, ModelResponse):  # type: ignore - staying explicit
+        elif isinstance(history_item, ModelResponse):
             return QdrantRAGItem(
                 history_item_id=history_item.id,
                 history_id=history_item.history_id,

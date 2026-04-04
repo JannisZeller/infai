@@ -45,7 +45,7 @@ class PydanticAIService:
         self._rag_service = rag_service
         self._prompts_service = prompts_service
 
-    async def _handle_user_prompt_node(self, node: UserPromptNode, history_id: UUID) -> AsyncIterator[StreamItem]:  # type: ignore
+    async def _handle_user_prompt_node(self, node: UserPromptNode, history_id: UUID) -> AsyncIterator[StreamItem]:
         user_prompt = PydanticAiMapper.map_user_prompt_out(
             pai_user_prompt=node.user_prompt,
             id=uuid4(),
@@ -59,12 +59,12 @@ class PydanticAIService:
 
     async def _handle_model_request_node(
         self,
-        node: ModelRequestNode,  # type: ignore
+        node: ModelRequestNode,
         run: AgentRun,
         history_id: UUID,
     ) -> AsyncIterator[StreamItem]:
         # A model request node => We can stream tokens from the model's request
-        async with node.stream(run.ctx) as request_stream:  # type: ignore
+        async with node.stream(run.ctx) as request_stream:
             current_part = ModelRequestCurrentPart(history_id=history_id)
 
             async for event in request_stream:
@@ -136,12 +136,12 @@ class PydanticAIService:
 
     async def _handle_call_tools_node(
         self,
-        node: CallToolsNode,  # type: ignore
+        node: CallToolsNode,
         run: AgentRun,
         history_id: UUID,
     ) -> AsyncIterator[StreamItem]:
         # A handle-response node => The model returned some data, potentially calls a tool
-        async with node.stream(run.ctx) as handle_stream:  # type: ignore
+        async with node.stream(run.ctx) as handle_stream:
             async for event in handle_stream:
                 if isinstance(event, paim.FunctionToolCallEvent):
                     tool_call = PydanticAiMapper.map_tool_call_out(
@@ -160,7 +160,7 @@ class PydanticAIService:
                     await self._history_service.add_history_item(tool_result)
                     yield tool_result
 
-    async def _handle_end_node(self, node: EndNode, run: AgentRun, history_id: UUID) -> AsyncIterator[StreamItem]:  # type: ignore
+    async def _handle_end_node(self, node: EndNode, run: AgentRun, history_id: UUID) -> AsyncIterator[StreamItem]:
         yield StreamEnd(id=uuid4(), history_id=history_id, created_at=time_ns())
 
     async def stream_agent_run(
@@ -206,14 +206,14 @@ class PydanticAIService:
         async with agent.iter(pai_user_prompt, message_history=pai_history) as run:
             async for node in run:
                 if Agent.is_user_prompt_node(node):
-                    async for item in self._handle_user_prompt_node(node=node, history_id=history_id):  # type: ignore
+                    async for item in self._handle_user_prompt_node(node=node, history_id=history_id):
                         yield item
                 elif Agent.is_model_request_node(node):
-                    async for item in self._handle_model_request_node(node=node, run=run, history_id=history_id):  # type: ignore
+                    async for item in self._handle_model_request_node(node=node, run=run, history_id=history_id):
                         yield item
                 elif Agent.is_call_tools_node(node):
-                    async for item in self._handle_call_tools_node(node=node, run=run, history_id=history_id):  # type: ignore
+                    async for item in self._handle_call_tools_node(node=node, run=run, history_id=history_id):
                         yield item
                 elif Agent.is_end_node(node):
-                    async for item in self._handle_end_node(node=node, run=run, history_id=history_id):  # type: ignore
+                    async for item in self._handle_end_node(node=node, run=run, history_id=history_id):
                         yield item

@@ -12,8 +12,7 @@ from src.core.logging import configure_module_logging, get_logger
 from src.history.async_sqlalchemy.adapter import AsyncSqlalchemyHistoryRepo
 from src.history.service import HistoryService
 from src.rag.factory import get_rag_service_or_none
-from src.tools.factories.dumcp import create_dumcp_tool_set  # type: ignore # noqa: F401
-from src.tools.factories.dumcp_remote import create_dumcp_remote_tool_set  # type: ignore # noqa: F401
+from src.tools.factories.dumcp import create_dumcp_tool_set
 from src.tools.factories.dummy_tool import create_dummy_tool_set
 from src.ui.console.adapter import ConsoleAdapter
 
