@@ -12,6 +12,7 @@ SessionContext = AsyncGenerator[AsyncSession, None]
 DEFAULT_DATABASE_URL = "sqlite+aiosqlite:///data/database.db"
 ALEMBIC_CONFIG_PATH = Path(__file__).resolve().parents[2] / "alembic.ini"
 LEGACY_BASELINE_TABLES = {"history", "history_items"}
+LEGACY_BASELINE_REVISION = "0001_history_tables"
 
 
 def get_engine(database_url: str = DEFAULT_DATABASE_URL) -> AsyncEngine:
@@ -49,7 +50,8 @@ def run_migrations(database_url: str = DEFAULT_DATABASE_URL, revision: str = "he
     if LEGACY_BASELINE_TABLES.issubset(existing_tables) and (
         "alembic_version" not in existing_tables or has_empty_alembic_version
     ):
-        command.stamp(alembic_config, revision)
+        command.stamp(alembic_config, LEGACY_BASELINE_REVISION)
+        command.upgrade(alembic_config, revision)
         return
 
     command.upgrade(alembic_config, revision)

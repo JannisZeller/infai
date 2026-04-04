@@ -6,6 +6,7 @@ from sqlmodel import SQLModel
 from alembic import context
 from src.config.factory import get_database_connection_string
 from src.history.repo.async_sqlalchemy.models import HistoryDb, HistoryItemDb
+from src.token_store.async_sqlalchemy.models import TokenStoreEntryDb
 
 config = context.config
 
@@ -13,7 +14,7 @@ if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
 target_metadata = SQLModel.metadata
-_ = (HistoryDb, HistoryItemDb)
+_ = (HistoryDb, HistoryItemDb, TokenStoreEntryDb)
 DEFAULT_ALEMBIC_URL = "OVERRIDDEN_BY_ENV_PY"
 
 

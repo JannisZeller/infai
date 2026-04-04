@@ -4,6 +4,8 @@ from typing import Any, AsyncIterator, Sequence
 from uuid import UUID, uuid4
 
 import pydantic_ai.messages as paim
+from key_value.aio.protocols import AsyncKeyValue
+from mcp.client.session import ElicitationFnT
 from pydantic_ai import Agent, AgentRun, DeferredToolRequests, DeferredToolResults, ToolDenied
 from pydantic_ai.agent import CallToolsNode, ModelRequestNode, UserPromptNode
 from pydantic_ai.models.openai import OpenAIChatModel, OpenAIResponsesModel
@@ -50,12 +52,16 @@ class PydanticAIService:
         history_service: HistoryService,
         rag_service: RAGService | None,
         prompts_service: PromptsService,
+        mcp_elicitation_callback: ElicitationFnT | None = None,
+        mcp_token_store: AsyncKeyValue | None = None,
     ):
         self._config = config
         self._llm = llm
         self._history_service = history_service
         self._rag_service = rag_service
         self._prompts_service = prompts_service
+        self._mcp_elicitation_callback = mcp_elicitation_callback
+        self._mcp_token_store = mcp_token_store
         self._pending_approval_runs: dict[str, PendingApprovalRun] = {}
 
     def _prune_pending_approval_runs(self) -> None:
@@ -246,7 +252,13 @@ class PydanticAIService:
         skip_tool_call_ids: set[str] | None = None,
     ) -> AsyncIterator[StreamItem]:
         pai_toolsets = [
-            PydanticAIToolProvider.get_pai_toolset(tool_set, self._config.logging) for tool_set in tool_sets
+            PydanticAIToolProvider.get_pai_toolset(
+                tool_set=tool_set,
+                logging_config=self._config.logging,
+                elicitation_callback=self._mcp_elicitation_callback,
+                token_store=self._mcp_token_store,
+            )
+            for tool_set in tool_sets
         ]
 
         agent = Agent(model=self._llm, toolsets=pai_toolsets)

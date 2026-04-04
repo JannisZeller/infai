@@ -20,6 +20,18 @@ class MCPTool(Tool):
 
 
 @dataclass(frozen=True)
+class MCPBearerAuth:
+    token: str
+
+
+@dataclass(frozen=True)
+class MCPOAuth:
+    scopes: tuple[str, ...] = ()
+    client_name: str = "infai"
+    callback_port: int | None = None
+
+
+@dataclass(frozen=True)
 class BaseToolSet:
     name: str
     system_prompt: str
@@ -43,6 +55,8 @@ class MCPToolSetRemote(BaseToolSet):
     tools: list[MCPTool]
     transport: Literal["http", "sse"]
     url: str
+    headers: dict[str, str] | None = None
+    auth: MCPBearerAuth | MCPOAuth | None = None
 
 
 ToolSet = FunctionToolSet | MCPToolSetSTDIO | MCPToolSetRemote

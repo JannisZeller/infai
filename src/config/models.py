@@ -57,6 +57,11 @@ class DatabaseConfig(FrozenModel):
     connection_string: str
 
 
+class TokenStoreConfig(FrozenModel):
+    encryption_key: str
+    default_collection: str = "default"
+
+
 class HistoryConfig(FrozenModel):
     id_file_path: Path
 
@@ -80,6 +85,7 @@ class FileConfig(FrozenModel):
     logging: LoggingConfig
     chat: ChatConfig
     database: DatabaseConfig
+    token_store: TokenStoreConfig | None = None
 
 
 class Config(FrozenModel):
@@ -106,3 +112,6 @@ class Config(FrozenModel):
 
     # Database
     database: DatabaseConfig
+
+    # Token Store
+    token_store: TokenStoreConfig | None

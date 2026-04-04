@@ -127,3 +127,60 @@ database:
     )
 
     assert get_database_connection_string(config_path) == database_connection_string
+
+
+def test_get_config_loads_optional_token_store_section(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setenv("LLM_BASE_URL", "https://llm.example.test/v1")
+    monkeypatch.setenv("LLM_API_KEY", "llm-key")
+    monkeypatch.setenv("EMBEDDER_BASE_URL", "https://embedder.example.test/v1")
+    monkeypatch.setenv("EMBEDDER_API_KEY", "embedder-key")
+    monkeypatch.setenv("TOKEN_STORE_KEY", "WvXfjhMN4CPVDrZRa2oz1ti-xLrFFVybh7svZrxsR8M=")
+
+    history_file = tmp_path / "history.id"
+    config_path = _write_config(
+        tmp_path,
+        f"""
+ui: console
+history:
+  id_file_path: {history_file}
+llm:
+  provider: openai
+  openai:
+    base_url: ${{env:LLM_BASE_URL}}
+    api_key: ${{env:LLM_API_KEY}}
+    model_name: gpt-5.2
+    openai_reasoning_effort: medium
+    openai_reasoning_summary: detailed
+  ollama:
+    base_url: http://localhost:11434/v1
+    model_name: ministral-3:3b
+rag:
+  qdrant_url: http://localhost:6333
+embedder:
+  base_url: ${{env:EMBEDDER_BASE_URL}}
+  api_key: ${{env:EMBEDDER_API_KEY}}
+  model_name: text-embedding-3-small
+  chunk_max_chars: 16000
+  chunk_overlap_chars: 1600
+logging:
+  base_path: data/logs
+  module_logging_filename_dict:
+    sqlalchemy: sqlalchemy.log
+  main_logging_filename: main.log
+  mcp_logging_filename: mcp.log
+chat:
+  last_n_history_items: 10
+  n_memory_items: 10
+database:
+  connection_string: sqlite+aiosqlite:///data/database.db
+token_store:
+  encryption_key: ${{env:TOKEN_STORE_KEY}}
+  default_collection: mcp-oauth
+""",
+    )
+
+    config = get_config(config_path)
+
+    assert config.token_store is not None
+    assert config.token_store.encryption_key == "WvXfjhMN4CPVDrZRa2oz1ti-xLrFFVybh7svZrxsR8M="
+    assert config.token_store.default_collection == "mcp-oauth"

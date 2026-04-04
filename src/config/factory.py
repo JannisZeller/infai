@@ -115,4 +115,5 @@ def get_config(config_path: Path | str | None = None) -> Config:
         logging=file_config.logging,
         chat_config=file_config.chat,
         database=file_config.database,
+        token_store=file_config.token_store,
     )
