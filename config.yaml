@@ -1,5 +1,10 @@
 ui: console
 
+web:
+  public_base_url: http://localhost:8000
+  allowed_origins:
+    - http://localhost:5173
+
 history:
   id_file_path: data/history.id
 

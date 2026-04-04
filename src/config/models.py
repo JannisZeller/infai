@@ -62,6 +62,11 @@ class TokenStoreConfig(FrozenModel):
     default_collection: str = "default"
 
 
+class WebConfig(FrozenModel):
+    public_base_url: str = "http://localhost:8000"
+    allowed_origins: tuple[str, ...] = ("http://localhost:5173",)
+
+
 class HistoryConfig(FrozenModel):
     id_file_path: Path
 
@@ -77,7 +82,7 @@ class LLMProviderConfig(FrozenModel):
 
 
 class FileConfig(FrozenModel):
-    ui: Literal["console"]
+    ui: Literal["console", "web"]
     history: HistoryConfig
     llm: LLMProviderConfig
     rag: RAGConfig
@@ -86,13 +91,14 @@ class FileConfig(FrozenModel):
     chat: ChatConfig
     database: DatabaseConfig
     token_store: TokenStoreConfig | None = None
+    web: WebConfig | None = None
 
 
 class Config(FrozenModel):
     """The Configuration for the application."""
 
     # UI
-    ui: Literal["console"]
+    ui: Literal["console", "web"]
 
     # History
     history_id: UUID
@@ -115,3 +121,6 @@ class Config(FrozenModel):
 
     # Token Store
     token_store: TokenStoreConfig | None
+
+    # Web
+    web: WebConfig | None

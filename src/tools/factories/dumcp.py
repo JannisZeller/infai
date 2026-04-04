@@ -1,3 +1,5 @@
+import sys
+
 from src.tools.models import MCPTool, MCPToolSetSTDIO
 
 
@@ -11,7 +13,7 @@ def create_dumcp_tool_set() -> MCPToolSetSTDIO:
                 system_prompt="Adds two integers together.",
             )
         ],
-        command="python",
+        command=sys.executable,
         args=["-m", "dumcp.server"],
         env=None,
     )

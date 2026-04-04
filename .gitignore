@@ -15,3 +15,6 @@ __pycache__
 data/
 
 .playwright-mcp
+
+frontend/node_modules/
+frontend/dist/

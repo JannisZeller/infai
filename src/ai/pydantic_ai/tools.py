@@ -1,4 +1,5 @@
 import os
+from collections.abc import Callable
 from typing import Any
 
 import httpx
@@ -13,6 +14,8 @@ from pydantic_ai.toolsets import AbstractToolset
 from src.config.models import LoggingConfig
 from src.tools.models import FunctionToolSet, MCPBearerAuth, MCPOAuth, MCPToolSetRemote, MCPToolSetSTDIO, ToolSet
 
+RemoteOAuthProviderFactory = Callable[[MCPToolSetRemote, AsyncKeyValue], httpx.Auth]
+
 
 class PydanticAIToolProvider:
     @staticmethod
@@ -21,6 +24,7 @@ class PydanticAIToolProvider:
         logging_config: LoggingConfig,
         elicitation_callback: ElicitationFnT | None = None,
         token_store: AsyncKeyValue | None = None,
+        oauth_provider_factory: RemoteOAuthProviderFactory | None = None,
     ) -> AbstractToolset[Any]:
         match tool_set:
             case FunctionToolSet():
@@ -37,6 +41,7 @@ class PydanticAIToolProvider:
                     tool_set=tool_set,
                     elicitation_callback=elicitation_callback,
                     token_store=token_store,
+                    oauth_provider_factory=oauth_provider_factory,
                 )
                 return PydanticAIToolProvider._with_mcp_wrappers(mcp_server=mcp_server, tool_set=tool_set)
 
@@ -116,8 +121,13 @@ class PydanticAIToolProvider:
         tool_set: MCPToolSetRemote,
         elicitation_callback: ElicitationFnT | None,
         token_store: AsyncKeyValue | None,
+        oauth_provider_factory: RemoteOAuthProviderFactory | None,
     ) -> MCPServerStreamableHTTP | MCPServerSSE:
-        http_client = PydanticAIToolProvider._get_remote_http_client(tool_set=tool_set, token_store=token_store)
+        http_client = PydanticAIToolProvider._get_remote_http_client(
+            tool_set=tool_set,
+            token_store=token_store,
+            oauth_provider_factory=oauth_provider_factory,
+        )
         match tool_set.transport:
             case "http":
                 return MCPServerStreamableHTTP(
@@ -138,6 +148,7 @@ class PydanticAIToolProvider:
     def _get_remote_http_client(
         tool_set: MCPToolSetRemote,
         token_store: AsyncKeyValue | None,
+        oauth_provider_factory: RemoteOAuthProviderFactory | None,
     ) -> httpx.AsyncClient | None:
         if tool_set.auth is None:
             return None
@@ -148,12 +159,15 @@ class PydanticAIToolProvider:
             case MCPOAuth(scopes=scopes, client_name=client_name, callback_port=callback_port):
                 if token_store is None:
                     raise ValueError("OAuth-configured MCP servers require a configured token store.")
-                auth = OAuth(
-                    mcp_url=tool_set.url,
-                    scopes=list(scopes),
-                    client_name=client_name,
-                    token_storage=token_store,
-                    callback_port=callback_port,
-                )
+                if oauth_provider_factory is not None:
+                    auth = oauth_provider_factory(tool_set, token_store)
+                else:
+                    auth = OAuth(
+                        mcp_url=tool_set.url,
+                        scopes=list(scopes),
+                        client_name=client_name,
+                        token_storage=token_store,
+                        callback_port=callback_port,
+                    )
 
         return httpx.AsyncClient(headers=tool_set.headers or {}, auth=auth, follow_redirects=True)

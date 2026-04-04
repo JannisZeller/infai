@@ -23,7 +23,7 @@ from src.ai.models import (
 )
 from src.ai.prompts import PromptsService
 from src.ai.pydantic_ai.mapper import PydanticAiMapper
-from src.ai.pydantic_ai.tools import PydanticAIToolProvider
+from src.ai.pydantic_ai.tools import PydanticAIToolProvider, RemoteOAuthProviderFactory
 from src.config.models import Config
 from src.history.models import HistoryItem, UserPrompt
 from src.history.service import HistoryService
@@ -55,6 +55,7 @@ class PydanticAIService:
         prompts_service: PromptsService,
         mcp_elicitation_callback: ElicitationFnT | None = None,
         mcp_token_store: AsyncKeyValue | None = None,
+        oauth_provider_factory: RemoteOAuthProviderFactory | None = None,
     ):
         self._config = config
         self._llm = llm
@@ -63,6 +64,7 @@ class PydanticAIService:
         self._prompts_service = prompts_service
         self._mcp_elicitation_callback = mcp_elicitation_callback
         self._mcp_token_store = mcp_token_store
+        self._oauth_provider_factory = oauth_provider_factory
         self._pending_approval_runs: dict[str, PendingApprovalRun] = {}
 
     def _prune_pending_approval_runs(self) -> None:
@@ -261,6 +263,7 @@ class PydanticAIService:
                 logging_config=self._config.logging,
                 elicitation_callback=self._mcp_elicitation_callback,
                 token_store=self._mcp_token_store,
+                oauth_provider_factory=self._oauth_provider_factory,
             )
             for tool_set in tool_sets
         ]
