@@ -50,7 +50,7 @@ class PydanticAIToolProvider:
         tools = [
             Tool(
                 function=tool.function,
-                name=tool.name,
+                name=PydanticAIToolProvider._get_exposed_tool_name(tool_set.name, tool.name),
                 description=tool.system_prompt,
                 requires_approval=tool.requires_approval,
             )
@@ -65,7 +65,7 @@ class PydanticAIToolProvider:
     ) -> AbstractToolset[Any]:
         return PydanticAIToolProvider._with_optional_approval_wrapper(
             mcp_server=PydanticAIToolProvider._with_tool_whitelist_wrapper(
-                mcp_server=mcp_server,
+                mcp_server=mcp_server.prefixed(tool_set.name),
                 tool_set=tool_set,
             ),
             tool_set=tool_set,
@@ -73,9 +73,11 @@ class PydanticAIToolProvider:
 
     @staticmethod
     def _with_tool_whitelist_wrapper(
-        mcp_server: MCPServer, tool_set: MCPToolSetSTDIO | MCPToolSetRemote
+        mcp_server: AbstractToolset[Any], tool_set: MCPToolSetSTDIO | MCPToolSetRemote
     ) -> AbstractToolset[Any]:
-        whitelisted_tool_names = {tool.name for tool in tool_set.tools}
+        whitelisted_tool_names = {
+            PydanticAIToolProvider._get_exposed_tool_name(tool_set.name, tool.name) for tool in tool_set.tools
+        }
         return mcp_server.filtered(filter_func=lambda _ctx, tool_def: tool_def.name in whitelisted_tool_names)
 
     @staticmethod
@@ -83,13 +85,21 @@ class PydanticAIToolProvider:
         mcp_server: AbstractToolset[Any],
         tool_set: MCPToolSetSTDIO | MCPToolSetRemote,
     ) -> AbstractToolset[Any]:
-        tool_names_requiring_approval = {tool.name for tool in tool_set.tools if tool.requires_approval}
+        tool_names_requiring_approval = {
+            PydanticAIToolProvider._get_exposed_tool_name(tool_set.name, tool.name)
+            for tool in tool_set.tools
+            if tool.requires_approval
+        }
         if not tool_names_requiring_approval:
             return mcp_server
 
         return mcp_server.approval_required(
             approval_required_func=lambda _ctx, tool_def, _tool_args: tool_def.name in tool_names_requiring_approval
         )
+
+    @staticmethod
+    def _get_exposed_tool_name(tool_set_name: str, tool_name: str) -> str:
+        return f"{tool_set_name}_{tool_name}"
 
     @staticmethod
     def _get_mcp_server_stdio(

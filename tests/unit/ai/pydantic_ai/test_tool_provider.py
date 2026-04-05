@@ -9,6 +9,7 @@ from pydantic_ai.mcp import MCPServerStreamableHTTP
 from pydantic_ai.tools import ToolDefinition
 from pydantic_ai.toolsets.approval_required import ApprovalRequiredToolset
 from pydantic_ai.toolsets.filtered import FilteredToolset
+from pydantic_ai.toolsets.prefixed import PrefixedToolset
 
 from src.ai.pydantic_ai.tools import PydanticAIToolProvider
 from src.config.models import LoggingConfig
@@ -41,8 +42,8 @@ def test_get_pai_toolset_marks_function_tools_for_approval():
     pai_toolset = PydanticAIToolProvider.get_pai_toolset(tool_set, LOGGING_CONFIG)
 
     assert isinstance(pai_toolset, FunctionToolset)
-    assert pai_toolset.tools["plain_tool"].requires_approval is False
-    assert pai_toolset.tools["risky_tool"].requires_approval is True
+    assert pai_toolset.tools["function_tools_plain_tool"].requires_approval is False
+    assert pai_toolset.tools["function_tools_risky_tool"].requires_approval is True
 
 
 def test_get_pai_toolset_wraps_mcp_toolset_with_approval_required():
@@ -62,7 +63,7 @@ def test_get_pai_toolset_wraps_mcp_toolset_with_approval_required():
     assert isinstance(pai_toolset, ApprovalRequiredToolset)
     assert isinstance(pai_toolset.wrapped, FilteredToolset)
 
-    allow_tool = ToolDefinition(name="safe_mcp_tool")
+    allow_tool = ToolDefinition(name="mcp_tools_safe_mcp_tool")
     deny_tool = ToolDefinition(name="unknown_tool")
     assert pai_toolset.wrapped.filter_func(cast(Any, None), allow_tool) is True
     assert pai_toolset.wrapped.filter_func(cast(Any, None), deny_tool) is False
@@ -87,7 +88,8 @@ def test_get_pai_toolset_passes_elicitation_callback_to_mcp_server():
     )
 
     assert isinstance(pai_toolset, FilteredToolset)
-    wrapped_server = cast(MCPServerStreamableHTTP, pai_toolset.wrapped)
+    assert isinstance(pai_toolset.wrapped, PrefixedToolset)
+    wrapped_server = cast(MCPServerStreamableHTTP, pai_toolset.wrapped.wrapped)
     assert wrapped_server.elicitation_callback is elicitation_callback
 
 
@@ -105,7 +107,8 @@ def test_get_pai_toolset_configures_bearer_auth_for_remote_mcp_server():
     pai_toolset = PydanticAIToolProvider.get_pai_toolset(tool_set=tool_set, logging_config=LOGGING_CONFIG)
 
     assert isinstance(pai_toolset, FilteredToolset)
-    wrapped_server = cast(MCPServerStreamableHTTP, pai_toolset.wrapped)
+    assert isinstance(pai_toolset.wrapped, PrefixedToolset)
+    wrapped_server = cast(MCPServerStreamableHTTP, pai_toolset.wrapped.wrapped)
     assert isinstance(wrapped_server.http_client, httpx.AsyncClient)
     assert wrapped_server.http_client.headers["X-Test"] == "1"
 
