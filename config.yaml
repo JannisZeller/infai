@@ -43,3 +43,7 @@ chat:
 
 database:
   connection_string: sqlite+aiosqlite:///data/database.db
+
+token_store:
+  encryption_key: "kCtI7Xmf6F2v1rznqh1-F__KHk7VCQJnL3CMN42T1rI="
+  default_collection: mcp-oauth

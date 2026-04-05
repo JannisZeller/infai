@@ -15,7 +15,9 @@ from src.history.repo.async_sqlalchemy.adapter import AsyncSqlalchemyHistoryRepo
 from src.history.service import HistoryService
 from src.rag.factory import get_rag_service_or_none
 from src.token_store.factory import get_token_store_or_none
-from src.tools.factories.dumcp import create_dumcp_tool_set
+
+# from src.tools.factories.dumcp import create_dumcp_tool_set
+from src.tools.factories.dumcp_remote import create_dumcp_remote_tool_set
 from src.tools.factories.dummy_tool import create_dummy_tool_set
 from src.ui.console.adapter import ConsoleAdapter
 from src.ui.console.mcp_elicitation_service import ConsoleMCPElicitationService
@@ -60,8 +62,8 @@ async def main():
         history_id=config.history_id,
         tool_sets=[
             create_dummy_tool_set(),
-            create_dumcp_tool_set(),
-            # create_dumcp_remote_tool_set(),
+            # create_dumcp_tool_set(),
+            create_dumcp_remote_tool_set(),
         ],
         last_n_history_items=config.chat_config.last_n_history_items,
         n_memory_items=config.chat_config.n_memory_items,
